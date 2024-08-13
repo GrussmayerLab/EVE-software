@@ -5150,9 +5150,9 @@ class CandidatePreview(QWidget):
             # parameter initialization
             
             fullAvgPSF = {}
-            fullAvgPSF['pos'] = {}
-            fullAvgPSF['neg'] = {}
-            fullAvgPSF['mix'] = {}
+            fullAvgPSF['pos'] = []
+            fullAvgPSF['neg'] = []
+            fullAvgPSF['mix'] = []
             
             maxNrCandidates = min(maxnrcandidates,len(parent.data['FittingResult'][0]))
             for loc in range(0,maxNrCandidates):
