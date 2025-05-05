@@ -197,7 +197,7 @@ The fluorescent on-time is estimated as follows (Supplementary Figure \ref{fig:l
 ![Showcase of the fluorescent on-time obtained via EVE from all emitter *on-times* of a DNA PAINT sample. A single exponential decay (blue line) is fitted to $\Delta_{temporal}$ pdf data (gray) on a linear (left) and logarithmic (right) y-axis. The exponential decay is fitted only in the regime where $\Delta_{temporal}$ is larger than the offset position (red). The single exponential decay fit has a half-time of 88 ± 3.5 ms.](Markdown_info/SciBG_lifetime.png){#fig:lifetime}
 
 ## 2. Drift correction
-Drift correction on the final localizations can be performed either via redundant cross correlation (RCC) [@martens_raw_2022], entropy minimization (DME) [@cnossen_drift_2021] or adaptive intersection maximization [@Ma2024]. Since RCC and DME are based on the concept of frames, a pseudo-frame-time should be provided for RCC/DME to run.
+Drift correction on the final localizations can be performed either via redundant cross correlation (RCC) [@martens_raw_2022], entropy minimization (DME) [@cnossen_drift_2021] or adaptive intersection maximization (AIM) [@Ma2024]. Since RCC and DME are based on the concept of frames, a pseudo-frame-time should be provided for RCC/DME to run.
 
 ## 3. Visualisation
 Visualisation of the final localizations [@martens_raw_2022] can be performed via individually rendered Gaussians with a global sigma, or with the sigma provided by the localization precision of each localization. Additionally, linearly interpolated 2D histograms can be created. For all methods, a visualisation pixel size should be provided. 
