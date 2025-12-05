@@ -1,0 +1,67 @@
+Metadata information for file /home/philippehenry/Documents/Master_DSAIT/0MastersThesis/EVE-software/Data/Ecoli/Ecoli_NR_Small.hdf5
+Analysis routine started at 2025-11-26 13:01:07
+Analysis routine finished at 2025-11-26 13:01:18
+
+
+-----Information on finding of polarity Mix: -----
+Methodology Used:
+DBSCAN.DBSCAN_onlyHighDensity(self.events,self.settings,distance_radius_lookup="7",density_multiplier="1.5",min_cluster_size="30",ratio_ms_to_px="35.0",DBSCAN_eps="6",min_consec="1")
+
+Number of candidates found: 967
+Candidate fitting took 4.27175498008728 seconds.
+
+
+-----Information on fitting of polarity Mix: -----
+Methodology Used:
+GaussianFitting.LogGaussian2D(self.partialFindingResults,self.settings,expected_width="150.0",fitting_tolerance="1.0",dist_kwarg="Hist2d_xy",time_kwarg="LognormCDFFirstEvents_weighted")
+
+Number of valid localizations found: 762
+Candidate fitting took 7.132547616958618 seconds.
+
+
+
+---- Global settings used ----
+
+MinFindingBoundingBoxXY: 3
+MinFindingBoundingBoxT: 10
+MaxFindingBoundingBoxXY: 20
+MaxFindingBoundingBoxT: 1000
+PixelSize_nm: 80
+MetaVisionPath: /usr/lib/python3/dist-packages
+StoreConvertedRawData: True
+StoreFileMetadata: True
+StoreFindingOutput: True
+StoreFittingOutput: True
+HotPixelIndexes: 
+OutputDataFormat: thunderstorm
+LoggingFilePath: /home/philippehenry/.local/share/Eve/logging.log
+Multithread: True
+UseCUDA: False
+FindingBatching: True
+FindingBatchingTimeMs: 50000
+FindingBatchingTimeOverlapMs: 500
+
+
+---- Additional custom output ----
+
+Custom output from finding function:
+
+
+
+
+
+
+
+Custom output from fitting function:
+Removed 31/967 (3.21%) candidates due to RuntimeError.
+Took average time instead of fitted time for 21/967 (2.17%) candidates due to TimeRuntimeError.
+Took average time instead of fitted time for 32/967 (3.31%) candidates due to TimeRuntimeWarning.
+Took average time instead of fitted time for 99/967 (10.24%) candidates due to TimeToleranceWarning.
+Removed 174/967 (17.99%) candidates due to ToleranceWarning.
+
+Candidates discarded by RuntimeError: [112, 119, 208, 210, 211, 212, 217, 247, 251, 343, ..., 745, 756, 762, 783, 784, 786, 921, 933, 934, 951]
+Candidates for which average time was taken instead of fitted time due to TimeRuntimeError:[24, 43, 76, 82, 99, 144, 190, 216, 249, 263, ..., 431, 447, 548, 556, 636, 675, 687, 832, 852, 920]
+Candidates for which average time was taken instead of fitted time due to TimeRuntimeWarning:[19, 49, 111, 120, 135, 149, 215, 423, 437, 449, ..., 764, 800, 827, 877, 886, 899, 936, 953, 956, 963]
+Candidates for which average time was taken instead of fitted time due to TimeToleranceWarning:[0, 17, 34, 37, 44, 51, 56, 66, 67, 73, ..., 931, 937, 938, 940, 941, 947, 949, 952, 957, 958]
+Candidates discarded by ToleranceWarning: [20, 28, 33, 48, 54, 57, 63, 71, 81, 89, ..., 900, 907, 909, 912, 919, 922, 935, 939, 943, 955]
+

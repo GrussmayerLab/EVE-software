@@ -1,0 +1,82 @@
+Metadata information for file /home/philippehenry/Documents/Master_DSAIT/0MastersThesis/EVE-software/Data/Nanoruler/Nanoruler_Small.hdf5
+Analysis routine started at 2025-11-22 13:59:23
+Analysis routine finished at 2025-11-22 14:00:39
+
+
+-----Information on finding of polarity Mix: -----
+Methodology Used:
+EigenFeatureAnalysis.eigenFeature_analysis(self.events,self.settings,search_n_neighbours="50",max_eigenval_cutoff="0.0",linearity_cutoff="0.7",ratio_ms_to_px="20.0",DBSCAN_eps="4",DBSCAN_n_neighbours="20",debug="False")
+
+Number of candidates found: 5713
+Candidate fitting took 42.27652907371521 seconds.
+
+
+-----Information on fitting of polarity Mix: -----
+Methodology Used:
+GaussianFitting.LogGaussian2D(self.partialFindingResults,self.settings,expected_width="150.0",fitting_tolerance="1.0",dist_kwarg="Hist2d_xy",time_kwarg="LognormCDFFirstEvents_weighted")
+
+Number of valid localizations found: 5513
+Candidate fitting took 34.36827349662781 seconds.
+
+
+
+---- Global settings used ----
+
+MinFindingBoundingBoxXY: 3
+MinFindingBoundingBoxT: 10
+MaxFindingBoundingBoxXY: 20
+MaxFindingBoundingBoxT: 1000
+PixelSize_nm: 80
+MetaVisionPath: /usr/lib/python3/dist-packages
+StoreConvertedRawData: True
+StoreFileMetadata: True
+StoreFindingOutput: True
+StoreFittingOutput: True
+HotPixelIndexes: 
+OutputDataFormat: thunderstorm
+LoggingFilePath: /home/philippehenry/.local/share/Eve/logging.log
+Multithread: True
+UseCUDA: False
+FindingBatching: True
+FindingBatchingTimeMs: 50000
+FindingBatchingTimeOverlapMs: 500
+
+
+---- Additional custom output ----
+
+Custom output from finding function:
+
+Eigen-Feature Finding ran for 34.98306608200073 seconds.
+Eigen-Feature Finding ran for 3.0266218185424805 seconds.
+Eigen-Feature Finding ran for 2.9232990741729736 seconds.
+Eigen-Feature Finding ran for 3.217611789703369 seconds.
+Eigen-Feature Finding ran for 2.5977368354797363 seconds.
+Eigen-Feature Finding ran for 2.787921190261841 seconds.
+Eigen-Feature Finding ran for 3.042922019958496 seconds.
+Eigen-Feature Finding ran for 3.094351291656494 seconds.
+Eigen-Feature Finding ran for 3.5984983444213867 seconds.
+Eigen-Feature Finding ran for 2.833284616470337 seconds.
+Eigen-Feature Finding ran for 2.541470766067505 seconds.
+Eigen-Feature Finding ran for 3.8874964714050293 seconds.
+Eigen-Feature Finding ran for 2.2489664554595947 seconds.
+Eigen-Feature Finding ran for 2.2784836292266846 seconds.
+Eigen-Feature Finding ran for 2.1691203117370605 seconds.
+Eigen-Feature Finding ran for 2.426928758621216 seconds.
+Eigen-Feature Finding ran for 2.4938910007476807 seconds.
+Eigen-Feature Finding ran for 2.1410951614379883 seconds.
+Eigen-Feature Finding ran for 0.6130175590515137 seconds.
+
+
+Custom output from fitting function:
+Removed 87/5713 (1.52%) candidates due to RuntimeError.
+Took average time instead of fitted time for 1/5713 (0.02%) candidates due to TimeOptimizeWarning.
+Took average time instead of fitted time for 163/5713 (2.85%) candidates due to TimeRuntimeError.
+Took average time instead of fitted time for 7/5713 (0.12%) candidates due to TimeToleranceWarning.
+Removed 113/5713 (1.98%) candidates due to ToleranceWarning.
+
+Candidates discarded by RuntimeError: [62, 91, 138, 189, 211, 213, 263, 277, 287, 447, ..., 4874, 4970, 5081, 5199, 5343, 5418, 5592, 5684, 5691, 5695]
+Candidates for which average time was taken instead of fitted time due to TimeOptimizeWarning: [125]
+Candidates for which average time was taken instead of fitted time due to TimeRuntimeError:[16, 47, 58, 60, 74, 84, 101, 103, 117, 131, ..., 5316, 5337, 5381, 5391, 5424, 5463, 5478, 5561, 5579, 5580]
+Candidates for which average time was taken instead of fitted time due to TimeToleranceWarning: [2375, 2907, 3667, 4174, 4437, 5129, 5483]
+Candidates discarded by ToleranceWarning: [128, 183, 231, 286, 291, 296, 301, 319, 324, 344, ..., 5194, 5230, 5345, 5365, 5492, 5513, 5539, 5585, 5628, 5652]
+
