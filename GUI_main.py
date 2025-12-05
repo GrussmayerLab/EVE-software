@@ -948,6 +948,73 @@ class MyGUI(QMainWindow):
         #Add the button to the layout:
         self.previewLayout.layout().addWidget(self.buttonEventsPreview, 4, 2, 1 ,2)
 
+        #Add a 'Find Best Parameters' button:
+        self.buttonFindBestParams = QPushButton("Find Best Parameters")
+        self.buttonFindBestParams.setToolTip("Run a grid search on the preview data to find the best parameters for candidate finding.")
+        self.buttonFindBestParams.clicked.connect(lambda: self.findBestParameters(
+            (self.preview_startTLineEdit.text(), self.preview_durationTLineEdit.text()),
+            (self.preview_minXLineEdit.text(), self.preview_maxXLineEdit.text(),
+             self.preview_minYLineEdit.text(), self.preview_maxYLineEdit.text())
+        ))
+        self.previewLayout.layout().addWidget(self.buttonFindBestParams, 5, 0, 1, 4)
+
+    def findBestParameters(self, timeStretch, xyStretch):
+        """
+        Runs the parameter search on the preview data.
+        """
+        logging.info("Starting parameter search...")
+        
+        # Load data similar to previewRun
+        if self.dataLocationInput.text().endswith('.hdf5'):
+            previewEvents, _ = self.timeSliceFromHDF(self.dataLocationInput.text(), requested_start_time_ms=float(timeStretch[0]), requested_end_time_ms=float(timeStretch[0])+float(timeStretch[1]), howOftenCheckHdfTime=50000)
+        elif self.dataLocationInput.text().endswith('.raw'):
+            previewEvents = utils.readRawTimeStretch(self.dataLocationInput.text(), self.globalSettings['MetaVisionPath']['value'], buffer_size=5e7, n_batches=5e7, timeStretchMs=[float(timeStretch[0])*1000, float(timeStretch[1])*1000])
+        elif self.dataLocationInput.text().endswith('.npy'):
+            previewEvents = np.load(self.dataLocationInput.text())
+            previewEvents = self.filterEvents_npy_t(previewEvents, timeStretch)
+        else:
+            logging.error("Unsupported file type for parameter search.")
+            return
+
+        # Remove hotpixels
+        hotpixelarray = eval("["+self.globalSettings['HotPixelIndexes']['value']+"]")
+        previewEvents = utils.removeHotPixelEvents(previewEvents, hotpixelarray)
+
+        if len(previewEvents) == 0:
+            logging.error("No events found for parameter search.")
+            return
+
+        # Filter XY
+        previewEvents = self.filterEvents_xy(previewEvents, xyStretch)
+        
+        if len(previewEvents) == 0:
+            logging.error("No events found after XY filtering for parameter search.")
+            return
+
+        # Import findingSearch here to avoid circular imports if any, or just ensuring it's available
+        try:
+            from HyperParameterSearch import findingSearch
+        except ImportError:
+            logging.error("Could not import findingSearch module.")
+            return
+
+        # Run the search
+        # We pass None for time/xy stretch to preview_run because we already filtered the events here.
+        # Alternatively, we could pass the full array and the stretch params, but since we already loaded a slice (especially for HDF5/RAW), 
+        # passing the already filtered events is more consistent with how previewRun works.
+        # findingSearch.preview_run expects (npy_array, settings, time_stretch=None, xy_stretch=None)
+        # Since we pass filtered events, we pass None for stretches.
+        
+        best_method, best_params = findingSearch.preview_run(previewEvents, self.globalSettings)
+        
+        if best_method:
+            msg = f"Best Method: {best_method}\nBest Params: {best_params}"
+            logging.info(msg)
+            QMessageBox.information(self, "Parameter Search Results", msg)
+        else:
+            logging.warning("Parameter search failed to find a best method.")
+            QMessageBox.warning(self, "Parameter Search Results", "Parameter search failed.")
+
     def abort_processing(self):
         abortFlag.value = True
         self.analysis_stop_button.setText("Stopping...")
