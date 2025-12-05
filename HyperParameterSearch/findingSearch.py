@@ -306,7 +306,7 @@ def preview_run_optuna(npy_array, settings, time_stretch=None, xy_stretch=None, 
     print(f"Running Optuna Bayesian optimization on {len(filtered_events)} events...")
     print(f"Using {n_trials} trials per method\n")
 
-    all_grids = {**DBSCAN_GRID, **EIGEN_GRID, **FRAME_GRID}
+    all_grids = {**DBSCAN_GRID, **EIGEN_GRID}
 
     # Optionally run methods in parallel (each method gets its own Optuna study)
     if n_jobs != 1:

@@ -1005,7 +1005,7 @@ class MyGUI(QMainWindow):
         # findingSearch.preview_run expects (npy_array, settings, time_stretch=None, xy_stretch=None)
         # Since we pass filtered events, we pass None for stretches.
 
-        best_method, best_params = findingSearch.preview_run_optuna(previewEvents, self.globalSettings, n_trials=50, n_jobs=1)
+        best_method, best_params = findingSearch.preview_run_optuna(previewEvents, self.globalSettings, n_trials=1, n_jobs=1)
         # best_method, best_params = findingSearch.preview_run(previewEvents, self.globalSettings)
 
         
