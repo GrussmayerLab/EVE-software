@@ -279,7 +279,7 @@ def preview_run(npy_array, settings, time_stretch=None, xy_stretch=None):
     
     return best_method, best_params
 
-def preview_run_optuna(npy_array, settings, time_stretch=None, xy_stretch=None, n_trials=200, n_jobs=1):
+def search_run_optuna(npy_array, settings, time_stretch=None, xy_stretch=None, n_trials=200, n_jobs=1):
     """
     Runs hyperparameter search using Optuna's Bayesian optimization (TPE sampler).
 
@@ -308,7 +308,6 @@ def preview_run_optuna(npy_array, settings, time_stretch=None, xy_stretch=None, 
 
     all_grids = {**DBSCAN_GRID, **EIGEN_GRID}
 
-    # Optionally run methods in parallel (each method gets its own Optuna study)
     if n_jobs != 1:
         print(f"Optimizing {len(all_grids)} methods in parallel with n_jobs={n_jobs}...")
         results = Parallel(n_jobs=n_jobs)(

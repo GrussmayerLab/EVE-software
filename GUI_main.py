@@ -9,7 +9,7 @@ from PyQt5.QtCore import Qt, QPoint, QProcess, QCoreApplication, QTimer, QFileSy
 import sys
 import typing
 from multiprocessing import Manager
-
+from HyperParameterSearch import findingSearch
 import pandas as pd
 from PyQt5.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTableView, QWidget, QGridLayout, QPushButton
@@ -853,6 +853,12 @@ class MyGUI(QMainWindow):
 
         tab_layout.addWidget(self.runLayout, 4, 0)
 
+        self.buttonSearch = QPushButton("Search Hyperparameters")
+        self.buttonSearch.setToolTip("Search for optimal hyperparameters for candidate finding and fitting")
+
+        self.buttonSearch.clicked.connect(lambda: self.open_hyperparameter_search_window())
+        self.runLayout.layout().addWidget(self.buttonSearch, 3, 0, 1, 6)
+
         """
         Spacing between things above and things below
         """
@@ -949,16 +955,16 @@ class MyGUI(QMainWindow):
         self.previewLayout.layout().addWidget(self.buttonEventsPreview, 4, 2, 1 ,2)
 
         #Add a 'Find Best Parameters' button:
-        self.buttonFindBestParams = QPushButton("Find Best Parameters")
-        self.buttonFindBestParams.setToolTip("Run a grid search on the preview data to find the best parameters for candidate finding.")
-        self.buttonFindBestParams.clicked.connect(lambda: self.findBestParameters(
+        self.buttonFindBestParams = QPushButton("Search Hyperparameters in Subsets")
+        self.buttonFindBestParams.setToolTip("Run a search on the preview data (subsets) to find the best parameters for candidate finding.")
+        self.buttonFindBestParams.clicked.connect(lambda: self.preview_find_best_parameters(
             (self.preview_startTLineEdit.text(), self.preview_durationTLineEdit.text()),
             (self.preview_minXLineEdit.text(), self.preview_maxXLineEdit.text(),
              self.preview_minYLineEdit.text(), self.preview_maxYLineEdit.text())
         ))
         self.previewLayout.layout().addWidget(self.buttonFindBestParams, 5, 0, 1, 4)
 
-    def findBestParameters(self, timeStretch, xyStretch):
+    def preview_find_best_parameters(self, timeStretch, xyStretch):
         """
         Runs the parameter search on the preview data.
         """
@@ -991,21 +997,8 @@ class MyGUI(QMainWindow):
             logging.error("No events found after XY filtering for parameter search.")
             return
 
-        # Import findingSearch here to avoid circular imports if any, or just ensuring it's available
-        try:
-            from HyperParameterSearch import findingSearch
-        except ImportError:
-            logging.error("Could not import findingSearch module.")
-            return
-
         # Run the search
-        # We pass None for time/xy stretch to preview_run because we already filtered the events here.
-        # Alternatively, we could pass the full array and the stretch params, but since we already loaded a slice (especially for HDF5/RAW), 
-        # passing the already filtered events is more consistent with how previewRun works.
-        # findingSearch.preview_run expects (npy_array, settings, time_stretch=None, xy_stretch=None)
-        # Since we pass filtered events, we pass None for stretches.
-
-        best_method, best_params = findingSearch.preview_run_optuna(previewEvents, self.globalSettings, n_trials=1, n_jobs=1)
+        best_method, best_params = findingSearch.search_run_optuna(previewEvents, self.globalSettings, n_trials=1, n_jobs=4)
         # best_method, best_params = findingSearch.preview_run(previewEvents, self.globalSettings)
 
         
@@ -1016,6 +1009,156 @@ class MyGUI(QMainWindow):
         else:
             logging.warning("Parameter search failed to find a best method.")
             QMessageBox.warning(self, "Parameter Search Results", "Parameter search failed.")
+
+    def load_events_for_search(self, use_preview_range=True, start_ms=None, duration_ms=None, xy=None, limit_chunks=None):
+        """
+        Load events for hyperparameter search using the same slice/chunk logic as FindingAnalysis.
+
+        - If use_preview_range is True, uses preview start/duration/xy fields when start_ms/duration_ms/xy not given.
+        - For HDF5, uses utils.determineAllStartStopTimesHDF / utils.findIndexFromTimeSliceHDF
+          and utils.timeSliceFromHDFFromIndeces to stream slices.
+        - For .npy/.raw, loads and filters with existing helpers.
+        - Applies hotpixel removal and xy/time filters.
+        - limit_chunks: if set, only loads up to that many chunks (useful for quick tests).
+        """
+        import numpy as np
+        data_loc = self.dataLocationInput.text().strip()
+        if not data_loc:
+            logging.error("No data location set")
+            return None
+
+        # determine time / xy window
+        if start_ms is None or duration_ms is None or xy is None:
+            if use_preview_range:
+                start_ms = float(self.preview_startTLineEdit.text() or 0)
+                duration_ms = float(self.preview_durationTLineEdit.text() or 1000)
+                xy_vals = (self.preview_minXLineEdit.text() or "-inf",
+                           self.preview_maxXLineEdit.text() or "inf",
+                           self.preview_minYLineEdit.text() or "-inf",
+                           self.preview_maxYLineEdit.text() or "inf")
+            else:
+                start_ms = float(self.run_startTLineEdit.text() or 0)
+                duration_ms = float(self.run_durationTLineEdit.text() or float("inf"))
+                xy_vals = (self.run_minXLineEdit.text() or "-inf",
+                           self.run_maxXLineEdit.text() or "inf",
+                           self.run_minYLineEdit.text() or "-inf",
+                           self.run_maxYLineEdit.text() or "inf")
+            xy = (float(xy_vals[0]) if xy_vals[0] != "-inf" else -np.Inf,
+                  float(xy_vals[1]) if xy_vals[1] != "inf" else np.Inf,
+                  float(xy_vals[2]) if xy_vals[2] != "-inf" else -np.Inf,
+                  float(xy_vals[3]) if xy_vals[3] != "inf" else np.Inf)
+
+        events_chunks = []
+
+        try:
+            if data_loc.endswith('.hdf5'):
+                # pick file location from findingAnalysis if set, else GUI field
+                fileloc = getattr(self, 'findingAnalysis', None)
+                fileloc = fileloc.fileLocation if (fileloc and getattr(fileloc, 'fileLocation', None)) else data_loc
+
+                # decide chunking times; prefer findingAnalysis chunking if available
+                chunk_time = getattr(self.findingAnalysis, 'chunkingTime', [np.inf, 0])
+                if chunk_time[0] == np.inf:
+                    # single slice for requested window
+                    hdf5_startstopindeces = utils.findIndexFromTimeSliceHDF(fileloc,
+                        requested_start_time_ms_arr=[start_ms],
+                        requested_end_time_ms_arr=[start_ms + duration_ms])
+                else:
+                    requested_start_time_ms_arr, requested_end_time_ms_arr = utils.determineAllStartStopTimesHDF(
+                        fileloc, timeChunkMs=chunk_time[0], timeChunkOverlapMs=chunk_time[1],
+                        chunkStartStopTime=[start_ms, start_ms + duration_ms])
+                    hdf5_startstopindeces = utils.findIndexFromTimeSliceHDF(fileloc,
+                        requested_start_time_ms_arr=requested_start_time_ms_arr,
+                        requested_end_time_ms_arr=requested_end_time_ms_arr)
+
+                # iterate chunks and stream them
+                for idx in range(len(hdf5_startstopindeces)):
+                    if limit_chunks is not None and idx >= limit_chunks:
+                        break
+                    chunk_events = utils.timeSliceFromHDFFromIndeces(fileloc, hdf5_startstopindeces, index=idx)
+                    if chunk_events is None or len(chunk_events) == 0:
+                        continue
+                    # remove hotpixels if configured
+                    try:
+                        hotpixelarray = eval("[" + self.globalSettings['HotPixelIndexes']['value'] + "]") if self.globalSettings['HotPixelIndexes']['value'] else []
+                        if len(hotpixelarray):
+                            chunk_events = utils.removeHotPixelEvents(chunk_events, hotpixelarray)
+                    except Exception:
+                        logging.warning("Could not parse/remove hotpixels; continuing")
+
+                    # filter XY/time for safety (time filter probably already applied by slicing)
+                    chunk_events = self.filterEvents_xy(chunk_events, xyStretch=xy)
+                    if len(chunk_events) > 0:
+                        events_chunks.append(chunk_events)
+
+            elif data_loc.endswith('.npy'):
+                arr = np.load(data_loc, mmap_mode='r')
+                # time filter
+                arr = self.filterEvents_npy_t(arr, tStretch=(start_ms, duration_ms))
+                if len(arr) > 0:
+                    arr = self.filterEvents_xy(arr, xyStretch=xy)
+                    events_chunks.append(arr)
+
+            elif data_loc.endswith('.raw'):
+                arr = self.RawToNpy(data_loc)
+                arr = self.filterEvents_npy_t(arr, tStretch=(start_ms, duration_ms))
+                if len(arr) > 0:
+                    arr = self.filterEvents_xy(arr, xyStretch=xy)
+                    events_chunks.append(arr)
+
+            else:
+                logging.error("Unsupported file type: %s", data_loc)
+                return None
+
+        except Exception as e:
+            logging.exception("Failed to load events: %s", e)
+            return None
+
+        if len(events_chunks) == 0:
+            logging.warning("No events found for requested window.")
+            return None
+
+        # concatenate chunks (structured arrays)
+        try:
+            all_events = np.concatenate(events_chunks)
+        except Exception:
+            # fallback: build list of dicts -> np.array
+            all_events = np.hstack([np.array(chunk) for chunk in events_chunks])
+
+        logging.info("Loaded %d events for hyperparameter search", len(all_events))
+        return all_events
+
+
+    def search_hyperparameters(self):
+        logging.info("Starting hyperparameter search...")
+
+        if self.dataLocationInput.text().endswith(('.hdf5', '.npy', '.raw')):
+
+            events = self.load_events_for_search(self, use_preview_range=True, limit_chunks=5)
+
+            best_method, best_params = findingSearch.search_run_optuna(events, self.globalSettings, n_trials=1,
+                                                                       n_jobs=4)
+
+            if best_method:
+                msg = f"Best Method: {best_method}\nBest Params: {best_params}"
+                logging.info(msg)
+                QMessageBox.information(self, "Hyperparameter Search Results", msg)
+            else:
+                logging.warning("Hyperparameter search failed to find a best method.")
+                QMessageBox.warning(self, "Hyperparameter Search Results", "Hyperparameter search failed.")
+        # todo: handle multiple files / directories
+        # elif os.path.isdir(self.dataLocationInput.text()):
+        #     # Find all files in the directory which end in .hdf5, .npy or .raw:
+        #     fileList = [f for f in os.listdir(self.dataLocationInput.text()) if f.endswith(('.hdf5', '.npy', '.raw'))]
+        #     for index, file in enumerate(fileList):
+        #         fullPath = os.path.join(self.dataLocationInput.text(), file)
+        #         try:
+        #
+        #             logging.info("Starting batch run of file: " + fullPath)
+        #
+        #         except:
+        #             logging.error("Error encountered in file " + fullpath + ", continuing with other files")
+        #
 
     def abort_processing(self):
         abortFlag.value = True
