@@ -998,7 +998,7 @@ class MyGUI(QMainWindow):
             return
 
         # Run the search
-        best_method, best_params = findingSearch.search_run_optuna(previewEvents, self.globalSettings, n_trials=1, n_jobs=4)
+        best_method, best_params = findingSearch.search_run_optuna(previewEvents, self.globalSettings, n_trials=50, n_jobs=4)
         # best_method, best_params = findingSearch.preview_run(previewEvents, self.globalSettings)
 
         
