@@ -1,0 +1,48 @@
+# Ruff configuration file
+# See https://beta.ruff.rs/docs/configuration/ for more information.
+
+# Target Python version
+target-version = "py39"
+
+# Extended line length
+line-length = 120
+
+[lint]
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`) codes by default.
+select = ["E", "F", "W"]
+ignore = [
+    "E501", # line too long (handled by formatter)
+    "F401", # unused import (common in this codebase)
+    "E731", # lambda assignment
+]
+
+# Exclude common directories
+exclude = [
+    ".git",
+    ".github",
+    ".venv",
+    "__pycache__",
+    "Data",
+    "PyPI",
+]
+
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
