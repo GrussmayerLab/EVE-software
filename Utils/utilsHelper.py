@@ -11,14 +11,14 @@ def argumentChecking(dictionaryInfo, function_name, given_kwargs):
     missing_req_args = [arg for arg in required_args if arg not in given_kwargs]
     if missing_req_args:
         raise ValueError(f"Missing required arguments: {', '.join(missing_req_args)} in function {str(function_name)}")
-    
+
     #Get optional kwargs and throw warning if any are missing
     optional_args = [req_kwarg["name"] for req_kwarg in dictionaryInfo[function_name]["optional_kwargs"]]
     missing_opt_args = [arg for arg in optional_args if arg not in given_kwargs]
     provided_opt_args = [arg for arg in optional_args if arg in given_kwargs]
     if missing_opt_args:
         logging.info(f"Unused optional arguments: {', '.join(missing_opt_args)} in function {str(function_name)}")
-    
+
     #Return the provided and missing optional arguments
     return [provided_opt_args, missing_opt_args]
 
@@ -27,11 +27,11 @@ def strtobool(val):
     #check if it's already a bool:
     if isinstance(val, bool):
         return val
-    
+
     #if it's a int/float, convert to string:
     if isinstance(val, (int, float)):
         val = str(val)
-    
+
     val = val.lower()
     if val in ('y', 'yes', 't', 'true','on', '1','2'):
         return 1
@@ -63,7 +63,7 @@ def removeCandidates_xytoutliers(candidates,settings,x_std_mult = None, y_std_mu
             y_std_mult = 2.5
         if t_std_mult == None:
             t_std_mult = 2.5
-        
+
     if running == True:
         for candidate in sorted(candidates, reverse=True):
             candidate_mean_x = np.mean(candidates[candidate]['events']['x'])
@@ -78,7 +78,7 @@ def removeCandidates_xytoutliers(candidates,settings,x_std_mult = None, y_std_mu
             t_std_outliers = np.abs(candidates[candidate]['events']['t']-candidate_mean_t) > t_std_mult*candidate_std_t
             #Remove the outliers:
             candidates[candidate]['events'] = candidates[candidate]['events'][~(x_std_outliers | y_std_outliers | t_std_outliers)]
-    
+
     return candidates
 
 
@@ -90,7 +90,7 @@ def removeCandidatesWithLargeSmallBoundingBox(candidates,settings):
     candidates, npoppedSmall = removeCandidatesWithSmallBoundingBox(candidates,xymin=float(settings['MinFindingBoundingBoxXY']['value']),tmin=float(settings['MinFindingBoundingBoxT']['value']))
     if npoppedSmall > 0:
         logging.warning(f"Removed {npoppedSmall}/{nrOrigCandidates} ({npoppedSmall/(nrOrigCandidates)*100}%) candidates due to too small bounding boxes")
-    
+
     return candidates, npoppedSmall, npoppedLarge
 
 def removeCandidatesWithLargeBoundingBox(candidates,xymax=20,tmax=1000):

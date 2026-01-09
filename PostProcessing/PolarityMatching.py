@@ -35,7 +35,7 @@ def __function_metadata__():
         "PolarityMatching_NeNASpatial": {
             "required_kwargs": [
                 {"name": "n_points_per_bin", "description": "Number of points per bin","default":"200","type":int,"display_text":"Number of points per bin"},
-                
+
             ],
             "optional_kwargs": [
             ],
@@ -46,7 +46,7 @@ def __function_metadata__():
             "required_kwargs": [
                 {"name": "timeOffsetPerc", "description": "Percentage time offset","default":"20","type":float,"display_text":"Time offset (%)"},
                 {"name": "nPops", "description": "Number of populations to fit, max 3","default":"1","type":int,"display_text":"Number of populations (max 3)"},
-                
+
             ],
             "optional_kwargs": [
             ],
@@ -74,7 +74,7 @@ def CFit_resultsCorr( x, y, initialValue, lowerBound, upperBound):
     bounds = ([lowerBound,0,0,0,0,0],[upperBound,1000,1000,1,1,1])
     popt, pcov = curve_fit(cFunc_2dCorr, x, y, p0=p0, bounds=bounds)
     return popt, pcov
-    
+
 
 #-------------------------------------------------------------------------------------------------------------------------------
 #Callable functions
@@ -85,7 +85,7 @@ def PolarityMatching(localizations,findingResult,settings,**kwargs):
     """
     #Check if we have the required kwargs
     [provided_optional_args, missing_optional_args] = utilsHelper.argumentChecking(__function_metadata__(),inspect.currentframe().f_code.co_name,kwargs) #type:ignore
-    
+
     start_time = time.time()
     #Error message and early exit if there isn't both pos and neg events
     pols = np.unique(localizations['p'])
@@ -104,15 +104,15 @@ def PolarityMatching(localizations,findingResult,settings,**kwargs):
         localizations.loc[:,'pol_link_id'] = -1
         localizations.loc[:,'pol_link_time'] = 0
         localizations.loc[:,'pol_link_xy'] = 0
-        
+
         #Get the pos and neg events
         posEvents = localizations[localizations['p']==1]
         negEvents = localizations[localizations['p']==0]
-        
+
         #Sort the pos and neg events:
         posEvents = posEvents.sort_values(by=['t'])
         negEvents = negEvents.sort_values(by=['t'])
-        
+
         #remove the nans:
         posEvents = posEvents.dropna()
         negEvents = negEvents.dropna()
@@ -125,16 +125,16 @@ def PolarityMatching(localizations,findingResult,settings,**kwargs):
                 if posEventId < len(posEvents):
                     if np.mod(posEventId,500) == 0:
                         logging.info('PolarityMatching progress: ' + str(posEventId) + ' of ' + str(len(posEvents)))
-                    
+
                     minin = mininAll[posEventId]
                     maxin = maxinAll[posEventId]
-                    
+
                     posEvent = posEvents.loc[posEventId]
-                
+
                     negEventsInTime = negEvents[minin:maxin]
-                    
+
                     # print(negEventsInTime['t']-posEvent['t'])
-                    
+
                     x_diff = negEventsInTime['x'].values - posEvent['x']
                     y_diff = negEventsInTime['y'].values - posEvent['y']
                     distance = np.sqrt(x_diff**2 + y_diff**2)
@@ -149,17 +149,17 @@ def PolarityMatching(localizations,findingResult,settings,**kwargs):
                         negEventsWithinDistance = negEventsInTime.iloc[foundNegEventId]
                         #And find the event distance belonging to it
                         eventDistance = distance[foundNegEventId]
-                        
+
                         #Renaming
                         negEventFound = negEventsWithinDistance
-                        
+
                         negEventId = negEventFound._name
-                        
+
                         #Update the positive candidate
                         posEvents.loc[posEventId,'pol_link_id'] = (negEventFound.candidate_id)
                         posEvents.loc[posEventId,'pol_link_time'] = (negEventFound.t - posEvent.t)
                         posEvents.loc[posEventId,'pol_link_xy'] = eventDistance
-                        
+
                         #And update the negative candidate
                         negEvents.loc[negEventId,'pol_link_id'] = (posEvent.candidate_id)
                         negEvents.loc[negEventId,'pol_link_time'] = (posEvent.t-negEventFound.t)
@@ -173,16 +173,16 @@ def PolarityMatching(localizations,findingResult,settings,**kwargs):
                 if negEventId < len(negEvents):
                     if np.mod(negEventId,500) == 0:
                         logging.info('PolarityMatching progress: ' + str(negEventId) + ' of ' + str(len(negEvents)))
-                    
+
                     minin = mininAll[negEventId]
                     maxin = maxinAll[negEventId]
-                    
+
                     negEvent = negEvents.loc[negEventIda]
-                
+
                     posEventsInTime = posEvents[minin:maxin]
-                    
+
                     # print(posEventsInTime['t']-negEvent['t'])
-                    
+
                     x_diff = posEventsInTime['x'].values - negEvent['x']
                     y_diff = posEventsInTime['y'].values - negEvent['y']
                     distance = np.sqrt(x_diff**2 + y_diff**2)
@@ -197,17 +197,17 @@ def PolarityMatching(localizations,findingResult,settings,**kwargs):
                         posEventsWithinDistance = posEventsInTime.iloc[foundPosEventId]
                         #And find the event distance belonging to it
                         eventDistance = distance[foundPosEventId]
-                        
+
                         #Renaming
                         posEventFound = posEventsWithinDistance
-                        
+
                         posEventId = posEventFound._name
-                        
+
                         #Update the positive candidate
                         posEvents.loc[posEventId,'pol_link_id'] = (negEvent.candidate_id)
                         posEvents.loc[posEventId,'pol_link_time'] = (negEvent.t - posEventFound.t)
                         posEvents.loc[posEventId,'pol_link_xy'] = eventDistance
-                        
+
                         #And update the negative candidate
                         negEvents.loc[negEventId,'pol_link_id'] = (posEventFound.candidate_id)
                         negEvents.loc[negEventId,'pol_link_time'] = (posEventFound.t-negEvent.t)
@@ -288,15 +288,15 @@ def PolarityMatching(localizations,findingResult,settings,**kwargs):
                     negEvents.loc[droppedEventId,'pol_link_id'] = -1
                     negEvents.loc[droppedEventId,'pol_link_time'] = 0
                     negEvents.loc[droppedEventId,'pol_link_xy'] = 0
-                
+
 
 
         #re-create localizations by adding these below one another again:
         localizations = pd.concat([posEvents, negEvents])
-                
+
     end_time = time.time()
     logging.info(f'Polarity Matching took {end_time-start_time} seconds')
-    
+
     #Required output: localizations
     metadata = f'Polarity Matching took {end_time-start_time} seconds'
     return localizations,metadata
@@ -311,21 +311,21 @@ def runNeNA(sublocs,n_bins_nena=99,loggingShow=True,visualisation=True):
     #Get the y-values
     ay=ahist[0]
     #Perform the fit
-    nena_start = 20;
+    nena_start = 20
     nena_lower = 2
     nena_upper = 100
     #Results will be stored in aF, error in aFerr
     aF,aFerr=CFit_resultsCorr(ar,ay,nena_start,nena_lower,nena_upper)
-    
+
     if loggingShow is True:
         #Output on the logging
         logging.info(f'NeNA precision: {np.round(aF[0],2)} +- {np.round(np.sqrt(aFerr[0,0]),2)}nm')
         logging.info(f'All NeNA parameters: {aF.tolist()}')
-    
+
     if visualisation is True:
         #Create the visual fit
         ayf=cFunc_2dCorr(ar,aF[0],aF[1],aF[2],aF[3],aF[4],aF[5])
-        
+
         #Create a plot
         fig, ax = plt.subplots()
         #Show the NeNA histogram
@@ -339,7 +339,7 @@ def runNeNA(sublocs,n_bins_nena=99,loggingShow=True,visualisation=True):
         plt.ylabel('Probability')
         #show
         plt.show()
-    
+
     return aF,aFerr
 
 def showWarningPolMatchingNotRan():
@@ -372,7 +372,7 @@ def PolarityMatching_NeNA(localizations,findingResult,settings,**kwargs):
         sublocs = localizations[localizations['p'] == 1]
         #Also remove all -1 pol link xy:
         sublocs = sublocs[sublocs['pol_link_xy']>0]
-        
+
         #Define the nr of bins for nena
         n_bins_nena = 99
         runNeNA(sublocs,n_bins_nena=n_bins_nena,loggingShow=True,visualisation=True)
@@ -390,14 +390,14 @@ def PolarityMatching_time(localizations,findingResult,settings,**kwargs):
         sublocs = localizations[localizations['p'] == 1]
         #Also remove all -1 pol link xy:
         sublocs = sublocs[sublocs['pol_link_xy']>0]
-        
+
         #Find the 95th percentile:
         perc1 = np.percentile(sublocs['pol_link_time'],1)
         perc95 = np.percentile(sublocs['pol_link_time'],95)
-        
-        
+
+
         histV,bin_edges = np.histogram(sublocs['pol_link_time'], bins=np.linspace(0, perc95, 100), density=True)
-        
+
         #Perform a smoothing on the histogram:
         from scipy.signal import savgol_filter
         filterhistV = savgol_filter(histV, int(len(histV)/5), 4)
@@ -407,10 +407,10 @@ def PolarityMatching_time(localizations,findingResult,settings,**kwargs):
         peakTime = bin_edges[maxBin+1]
         minTimeFit = peakTime*(1+float(kwargs['timeOffsetPerc'])/100)
         minTimeFitBin = np.argmin(np.abs(bin_edges - minTimeFit))
-        
+
         #List of values to fit, where valuesToFit[0] is times, valuesToFit[1] is prob
         valuesToFit = [bin_edges[minTimeFitBin:],histV[minTimeFitBin-1:]]
-        
+
         n_curves = int(kwargs['nPops'])
         #Fit with n_curves exponential decays:
         from scipy.optimize import curve_fit
@@ -435,7 +435,7 @@ def PolarityMatching_time(localizations,findingResult,settings,**kwargs):
             popt1Unc = np.sqrt(pcov[1][1])/popt[1]
             popt2Unc = np.sqrt(pcov[2][2])/popt[2]
             popt3Unc = np.sqrt(pcov[3][3])/popt[3]
-        
+
         fig = plt.figure()
         #4 subplots. 2 top ones: linear. 2 bottom ones: log (y).
         #            2 left ones: only in data range. 2 right ones: full exp decay
@@ -450,7 +450,7 @@ def PolarityMatching_time(localizations,findingResult,settings,**kwargs):
         colDecay = 'b'
         linestyleDecay1 = '-'
         linestyleDecay2 = '--'
-        
+
         ax = fig.add_subplot(231)
         ax.plot(bin_edges[1:],histV,colHist,linestyle=linestyleHist)
         ax.plot(bin_edges[1:],filterhistV,colHistFilt,linestyle=linestyleHistFilt)
@@ -471,7 +471,7 @@ def PolarityMatching_time(localizations,findingResult,settings,**kwargs):
             #set the ax title for 3 curves:
             fig.suptitle('t1/2 = ' + str(round(1/popt[1],2)) + '+-' + str(round(1/popt[1]*popt1Unc,2)) + ' (' + str(round(popt[4]*100,1)) +'%) | ' + str(round(1/popt[2],2)) + '+-' + str(round(1/popt[2]*popt2Unc,2)) + ' (' + str(round((popt[5])*100,1)) +'%) | ' + str(round(1/popt[3],2)) + '+-' + str(round(1/popt[3]*popt3Unc,2)) + ' (' + str(round((1-popt[4]-popt[5])*100,1)) +'%)  (ms)')
         ax.set_ylabel('Probability')
-        
+
         ax = fig.add_subplot(232)
         ax.plot(bin_edges[1:],histV,colHist,linestyle=linestyleHist)
         ax.plot(bin_edges[1:],filterhistV,colHistFilt,linestyle=linestyleHistFilt)
@@ -486,26 +486,26 @@ def PolarityMatching_time(localizations,findingResult,settings,**kwargs):
         elif n_curves == 3:
             ax.plot(bin_edges,exponential_decay_3(bin_edges, *popt), colDecay, linestyle=linestyleDecay2)
             ax.plot(valuesToFit[0],exponential_decay_3(valuesToFit[0], *popt), colDecay, linestyle=linestyleDecay1)
-        
+
         #add a legend:
         ax.legend(['Data','Smoothed','Peak','Offset','Exp. fit'])
-        
+
         #Plot the difference between expected and data
         ax = fig.add_subplot(233)
         ax.set_title('Expected minus Data')
-        
+
         if n_curves == 1:
             totVals = exponential_decay_1(bin_edges[1:], *popt)
         elif n_curves == 2:
             totVals = exponential_decay_2(bin_edges[1:], *popt)
         elif n_curves == 3:
             totVals = exponential_decay_3(bin_edges[1:], *popt)
-            
+
         ax.plot(bin_edges[1:],totVals-histV,colHist,linestyle=linestyleHist)
         ax.plot(bin_edges[1:],totVals-filterhistV,colHistFilt,linestyle=linestyleHistFilt)
         ax.legend(['Difference','Smoothed difference'])
-        
-        
+
+
         ax = fig.add_subplot(234)
         ax.plot(bin_edges[1:],histV,colHist,linestyle=linestyleHist)
         ax.plot(bin_edges[1:],filterhistV,colHistFilt,linestyle=linestyleHistFilt)
@@ -520,7 +520,7 @@ def PolarityMatching_time(localizations,findingResult,settings,**kwargs):
         ax.set_yscale('log')
         ax.set_ylabel('Probability')
         ax.set_xlabel('Time between pos/neg events (ms)')
-            
+
         ax = fig.add_subplot(235)
         ax.plot(bin_edges[1:],histV,colHist,linestyle=linestyleHist)
         ax.plot(bin_edges[1:],filterhistV,colHistFilt,linestyle=linestyleHistFilt)
@@ -537,32 +537,32 @@ def PolarityMatching_time(localizations,findingResult,settings,**kwargs):
             ax.plot(valuesToFit[0],exponential_decay_3(valuesToFit[0], *popt), colDecay, linestyle=linestyleDecay1)
         ax.set_yscale('log')
         ax.set_xlabel('Time between pos/neg events (ms)')
-        
+
         #Plot the difference between expected and data
         ax = fig.add_subplot(236)
         ax.set_title('Expected minus Data')
-        
+
         if n_curves == 1:
             totVals = exponential_decay_1(bin_edges[1:], *popt)
         elif n_curves == 2:
             totVals = exponential_decay_2(bin_edges[1:], *popt)
         elif n_curves == 3:
             totVals = exponential_decay_3(bin_edges[1:], *popt)
-            
+
         ax.plot(bin_edges[1:],totVals-histV,colHist,linestyle=linestyleHist)
         ax.plot(bin_edges[1:],totVals-filterhistV,colHistFilt,linestyle=linestyleHistFilt)
         ax.legend(['Difference','Smoothed difference'])
         ax.set_yscale('log')
         ax.set_xlabel('Time between pos/neg events (ms)')
-        
+
         plt.show()
-    
+
     return None
 
 
 def PolarityMatching_NeNASpatial(localizations,findingResult,settings,**kwargs):
-    
-    
+
+
     #Check if we have the pre-run polarity matching:
     if not ('pol_link_id' in localizations.columns and 'pol_link_time' in localizations.columns and 'pol_link_xy' in localizations.columns):
         showWarningPolMatchingNotRan()
@@ -571,15 +571,15 @@ def PolarityMatching_NeNASpatial(localizations,findingResult,settings,**kwargs):
         sublocs = localizations[localizations['p'] == 1]
         #Also remove all -1 pol link xy:
         sublocs = sublocs[sublocs['pol_link_xy']>0]
-        
+
         #We will cluster the points in sublocs into n_bins
         #But we base this on n_points_per bin
         n_points_per_bin = int(kwargs['n_points_per_bin'])
         n_bins = len(sublocs)//n_points_per_bin
-        
+
         n_colsrows = int((np.sqrt(n_bins)))
         logging.info("n_colsrows: " + str(n_colsrows))
-        
+
         #Split the sublocs data in these bins in x,y:
         #sort data on x:
         sublocs = sublocs.sort_values(by=['x'])
@@ -588,7 +588,7 @@ def PolarityMatching_NeNASpatial(localizations,findingResult,settings,**kwargs):
         xcounter = 0
         ycounter = 0
         neNAval = np.zeros((n_colsrows,n_colsrows))
-        
+
         for sublocssplit_i in sublocssplit:
             sublocssplit_i = sublocssplit_i.sort_values(by=['y'])
             sublocssplit_ij = np.array_split(sublocssplit_i, n_colsrows)
@@ -599,21 +599,21 @@ def PolarityMatching_NeNASpatial(localizations,findingResult,settings,**kwargs):
                 ycounter+=1
             xcounter+=1
             ycounter = 0
-        
 
-        
+
+
         print("Average NeNA value: " + str(np.mean(neNAval)))
         print("Median NeNA value: " + str(np.median(neNAval)))
         print("Standard Deviation of NeNA value: " + str(np.std(neNAval)))
 
-        #Now we have the NeNA values in neNAval, we want to remove regions where precision is too low, we will classify this as regions 
+        #Now we have the NeNA values in neNAval, we want to remove regions where precision is too low, we will classify this as regions
         #Where the NeNA value is greater than the average NeNA value + 2.5 standard deviations
 
         erraniousRegions = np.where(neNAval > np.mean(neNAval) + 2.5*np.std(neNAval))
         #print("Erranious regions: " + str(erraniousRegions))
 
         #Now we will remove these regions from the data:
-        
+
         #Without figuring out how to remove these from the original data (would require some arithmatic):
         xcounter = 0
         ycounter = 0
@@ -634,24 +634,24 @@ def PolarityMatching_NeNASpatial(localizations,findingResult,settings,**kwargs):
                 ycounter+=1
             xcounter+=1
             ycounter=0
-                
+
         sublocsNoOutliers = pd.concat(sublocsNoOutliers)
         pointsremove = len(sublocs) - len(sublocsNoOutliers)
         pointsremovepercentage = pointsremove/len(sublocs)
         print("\nRemoved: " + str(pointsremove) + " points out of " + str(len(sublocs)) + " points")
-        print("Percentage removed: " + str(pointsremovepercentage * 100) + "%" + "\n")  
+        print("Percentage removed: " + str(pointsremovepercentage * 100) + "%" + "\n")
 
         NeNANoOutliers = runNeNA(sublocsNoOutliers,n_bins_nena=99,loggingShow=False,visualisation=False)
         NeNAWithOutliers = runNeNA(sublocs,n_bins_nena=99,loggingShow=False,visualisation=False)
         print("Total NeNA value with outliers: " + str(NeNAWithOutliers[0][0]))
         print("Total NeNA value without outliers: " + str(NeNANoOutliers[0][0]))
 
-     
+
         #Plot the figure
         plt.figure()
         #plot a 2d image:
         plt.imshow(neNAval, cmap='viridis', interpolation='nearest')
         plt.colorbar()
         plt.show()
-    
+
     return None

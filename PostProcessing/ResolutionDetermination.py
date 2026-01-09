@@ -38,28 +38,28 @@ def __function_metadata__():
 def FRC(resultArray,findingResult,settings,**kwargs):
 
     from .dme.dme.native_api import NativeAPI
-    
-    sigma = float(kwargs['sigma'])  
+
+    sigma = float(kwargs['sigma'])
     use_cuda= settings['UseCUDA']['value']>0
-    
+
     pixel_recon_dim = (float(kwargs['pixel_sixe_recon']))
     zoom = float(settings['PixelSize_nm']['value'])/pixel_recon_dim
     visualisation=utilsHelper.strtobool(kwargs['visualisation'])
-    
+
     #Obtain the localizations from the resultArray
     resultArray=resultArray.dropna()
     xy = np.column_stack((resultArray['x'].values-min(resultArray['x']),resultArray['y'].values-min(resultArray['y'])))
     #Convert it to pixel-units
     xy/=(float(settings['PixelSize_nm']['value']))
-    
-    
+
+
     coin = np.random.binomial(1,0.5, len(xy)).reshape(len(xy),)
     xy1, xy2 = xy[coin == 0], xy[coin == 1]
-    
-    
+
+
     rendersize = int(np.max(xy))
     area = np.array([rendersize,rendersize])
-    
+
     imgshape = np.ceil(area*zoom).astype(int)
     FRC_im1 = np.zeros((0, *imgshape))
     FRC_im2 = np.zeros((0, *imgshape))
@@ -75,7 +75,7 @@ def FRC(resultArray,findingResult,settings,**kwargs):
     #         spots[:, 3] = sigma/(float(settings['PixelSize_nm']['value'])) * zoom
     #         spots[:, 4] = 1
     #         FRC_im1 = dll.DrawGaussians(img, spots)
-            
+
     #         img = np.zeros(imgshape,dtype=np.float32)
     #         spots = np.zeros((len(xy2), 5), dtype=np.float32)
     #         spots[:, 0] = xy2[:,0] * zoom
@@ -97,8 +97,8 @@ def FRC(resultArray,findingResult,settings,**kwargs):
                                     bins=[range(int(maxx*zoom+1)), range(int(maxy*zoom+1))])
     kernel = create_kernel(int((sigma/(float(settings['PixelSize_nm']['value'])) * zoom)*2.355))
     import scipy
-    FRC_im1 = scipy.signal.convolve2d(histogram_original[0], kernel, mode='same').T #Transpose to fix x,y 
-    
+    FRC_im1 = scipy.signal.convolve2d(histogram_original[0], kernel, mode='same').T #Transpose to fix x,y
+
     spots = np.zeros((len(xy2), 5), dtype=np.float32)
     spots[:, 0] = xy2[:,0] * zoom
     spots[:, 1] = xy2[:,1] * zoom
@@ -109,13 +109,13 @@ def FRC(resultArray,findingResult,settings,**kwargs):
                                     bins=[range(int(maxx*zoom+1)), range(int(maxy*zoom+1))])
     kernel = create_kernel(int((sigma/(float(settings['PixelSize_nm']['value'])) * zoom)*2.355))
     import scipy
-    FRC_im2 = scipy.signal.convolve2d(histogram_original[0], kernel, mode='same').T #Transpose to fix x,y 
-        
-        
+    FRC_im2 = scipy.signal.convolve2d(histogram_original[0], kernel, mode='same').T #Transpose to fix x,y
+
+
     import logging
     logging.info('Image created!')
-    
-    
+
+
     #Need to be normalized for FRC:
     FRC_im1 /= np.sum(FRC_im1)
     FRC_im2 /= np.sum(FRC_im2)
@@ -125,11 +125,11 @@ def FRC(resultArray,findingResult,settings,**kwargs):
     # The product of the two Fourier transforms is computed...
     # af1f2 = np.fft.fftshift(np.real(image1_f * np.conj(image2_f)))
     af1f2 = np.fft.fftshift(np.real(image1_f * np.conj(image2_f)))
-    # ...as well as the absolute values of squared Fourier transforms. These values 
+    # ...as well as the absolute values of squared Fourier transforms. These values
     # will be later used to compute the corrleation of both Fourier transforms
     af1_2, af2_2 = np.fft.fftshift(np.abs(image1_f**2)), np.fft.fftshift(np.abs(image2_f**2))
-    
-    
+
+
     #Next, we create a distance map that simply contains the distances of every
     #pixel to the center of the image.
     distancemap = np.zeros(FRC_im1.shape)
@@ -144,7 +144,7 @@ def FRC(resultArray,findingResult,settings,**kwargs):
 
     #First we assign a maximum distance (1-dimensional length of the image),
     #and create a few empty matrices.
-    max_dist = int(np.floor(np.shape(distancemap)[0]/2));
+    max_dist = int(np.floor(np.shape(distancemap)[0]/2))
     f1f2_r = np.zeros([max_dist,1])
     f12_r = np.zeros([max_dist,1])
     f22_r = np.zeros([max_dist,1])
@@ -198,7 +198,7 @@ def FRC(resultArray,findingResult,settings,**kwargs):
         #Close all previous plots, assumed max 10
         for _ in range(10):
             plt.close()
-        
+
         #Create a new figure
         fig, axs = plt.subplots(2, 2, figsize=(10, 5))
         axs[0,0].imshow(FRC_im1, cmap='gray')
@@ -214,14 +214,14 @@ def FRC(resultArray,findingResult,settings,**kwargs):
         axs[1,1].set_ylabel('FRC')
         #Give a user-warning if the FRC resolution could be wrong
         if normalization_required:
-            axs[1,1].set_title(f"FRC resolution: {np.round(FRCresolution, 1)} nm (LIKELY WRONG - FRC NORMALIZATION)", color='red');
+            axs[1,1].set_title(f"FRC resolution: {np.round(FRCresolution, 1)} nm (LIKELY WRONG - FRC NORMALIZATION)", color='red')
         else:
-            axs[1,1].set_title(f"FRC resolution: {np.round(FRCresolution, 1)} nm");
+            axs[1,1].set_title(f"FRC resolution: {np.round(FRCresolution, 1)} nm")
         plt.show()
 
     import logging
     logging.info(f"FRC resolution found: {np.round(FRCresolution, 1)} nm")
-    performance_metadata = f"Dummy function ran for seconds."
+    performance_metadata = "Dummy function ran for seconds."
     print('Function one ran!')
 
     return resultArray, performance_metadata
@@ -233,13 +233,13 @@ def create_kernel(size):
         size += 1
         logging.info(f'Kerning size was even, made odd and changed to size {size}')
     kernel = np.zeros((size,size))
-    
+
     center = (size/2-.5,size/2-.5)
-    
-    
+
+
     for xx in range(size):
         for yy in range(size):
             dist_to_center = np.ceil(np.sqrt((xx-center[0])**2+(yy-center[1])**2))
             kernel[xx,yy] = max(0,center[0]+1-dist_to_center)
-            
+
     return kernel

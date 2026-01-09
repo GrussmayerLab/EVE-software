@@ -35,12 +35,12 @@ def Regular_filter(localizations,findingResult,settings,**kwargs):
     [provided_optional_args, missing_optional_args] = utilsHelper.argumentChecking(__function_metadata__(),inspect.currentframe().f_code.co_name,kwargs) #type:ignore
 
     orig_len_localizations = len(localizations)
-    
+
     # Start the timer
     start_time = time.time()
-    
+
     filter_text = kwargs['Filter_text']
-    
+
     #Assumed filter text is in the form of "x < 50 & y > 100".
     #First we clean up all spaces:
     filter_text = filter_text.replace(' ','')
@@ -63,7 +63,7 @@ def Regular_filter(localizations,findingResult,settings,**kwargs):
                     logging.warning(f"Expected 2 entries in the inequality expression, but found {len(inequality_split)}")
                 else:
                     #check that the first entry is a variable that's found in the localization columns:
-                    if not inequality_split[0] in localizations.columns:
+                    if inequality_split[0] not in localizations.columns:
                         logging.warning(f"Could not find {inequality_split[0]} in the localization columns! Please format as 'x<100 or y>=100'")
                     else:
                         try:
@@ -74,7 +74,7 @@ def Regular_filter(localizations,findingResult,settings,**kwargs):
                             logging.warning(f'Unexpected error with filtering on {filter_textSplit[filter_entry]}')
                 break
         if inequalityFound == False:
-            logging.warning(f'No inequality found in \"{filter_textSplit[filter_entry]}\"! Please use ==,\<=,\>=,\<,\>,!=')
+            logging.warning(f'No inequality found in \"{filter_textSplit[filter_entry]}\"! Please use ==,\\<=,\\>=,\\<,\\>,!=')
 
     # Stop the timer
     end_time = time.time()
@@ -82,7 +82,7 @@ def Regular_filter(localizations,findingResult,settings,**kwargs):
     new_len_localizations = len(localizations)
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
-    
+
     logging.info(f'Went from {orig_len_localizations} to {new_len_localizations} localizations in {elapsed_time} seconds.')
     #Required output: localizations
     metadata = f'Filtering - {filter_text} - Went from {orig_len_localizations} to {new_len_localizations} localizations in {elapsed_time} seconds.'

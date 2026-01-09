@@ -37,45 +37,45 @@ import numpy as np
 def GaussianKernel_fixedSigma(resultArray,settings,**kwargs):
 
     from .dme.dme.native_api import NativeAPI
-    
+
     # sigma = float(kwargs['FWHM'])/(2*np.sqrt(2*np.log(2)))*16 #not sure why times 16, but seems to be right
-    sigma = float(kwargs['sigma'])  
+    sigma = float(kwargs['sigma'])
     px_size = float(kwargs['px_size'])
     use_cuda= settings['UseCUDA']['value']>0
     zoom = (float(settings['PixelSize_nm']['value']))/px_size
-    
+
     #Obtain the localizations from the resultArray
     resultArray=resultArray.dropna()
     xy = np.column_stack((resultArray['x'].values-min(resultArray['x']),resultArray['y'].values-min(resultArray['y'])))
     #Convert it to pixel-units
     xy/=(float(settings['PixelSize_nm']['value']))
-    
-    
+
+
     rendersize = int(np.max(xy))
     area = np.array([rendersize,rendersize])
-    
+
     imgshape = np.ceil(area*zoom).astype(int)
     image = np.zeros((0, *imgshape))
 
     with NativeAPI(use_cuda) as dll:
         img = np.zeros(imgshape,dtype=np.float32)
-        
+
         spots = np.zeros((len(xy), 5), dtype=np.float32)
         spots[:, 0] = xy[:,0] * zoom
         spots[:, 1] = xy[:,1] * zoom
         spots[:, 2] = sigma/(float(settings['PixelSize_nm']['value'])) * zoom
         spots[:, 3] = sigma/(float(settings['PixelSize_nm']['value'])) * zoom
         spots[:, 4] = 1
-        
+
 
         image = dll.DrawGaussians(img, spots)
-        
+
     #Scale should be the scale of pixel - to - um. E.g. a scale of 0.01 means 100 pixels = 1 um
     scale = (max(xy[:,0])*(float(settings['PixelSize_nm']['value']))/1000)/np.shape(image)[0]
     import logging
     logging.info('Gaussian image created!')
-    
-    
+
+
     return image, scale
 
 
@@ -84,7 +84,7 @@ def GaussianKernel_locPrec(resultArray,settings,**kwargs):
     px_size = float(kwargs['px_size'])
     use_cuda= settings['UseCUDA']['value']>0
     zoom = (float(settings['PixelSize_nm']['value']))/px_size
-    
+
     import logging
     #Check if we have the del_x and del_y columns:
     if 'del_x' not in resultArray or 'del_y' not in resultArray:
@@ -101,7 +101,7 @@ def GaussianKernel_locPrec(resultArray,settings,**kwargs):
         resultArray['del_x'] = resultArray['del_x'].fillna(mean_del_x)
         resultArray['del_y'] = resultArray['del_y'].fillna(mean_del_y)
         logging.warning(f"{n_del} NaN values in del_x or del_y column, replaced with their mean values")
-    
+
     #the same but then checking if any of the values are zero rather than nans:
     if (resultArray['del_x'] == 0).any() or (resultArray['del_y'] == 0).any():
         n_zero = (resultArray['del_x'] == 0).sum() + (resultArray['del_y'] == 0).sum()
@@ -136,7 +136,7 @@ def GaussianKernel_locPrec(resultArray,settings,**kwargs):
         spots[:, 4] = 1
 
         image = dll.DrawGaussians(img, spots)
-    
+
     #Scale should be the scale of pixel - to - um. E.g. a scale of 0.01 means 100 pixels = 1 um
     scale = (max(xy[:,0])*(float(settings['PixelSize_nm']['value']))/1000)/np.shape(image)[0]
     return image, scale

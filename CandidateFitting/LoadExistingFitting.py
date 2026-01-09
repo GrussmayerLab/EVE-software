@@ -1,4 +1,5 @@
-import inspect, logging
+import inspect
+import logging
 try:
     from eve_smlm.Utils import utilsHelper
 except ImportError:

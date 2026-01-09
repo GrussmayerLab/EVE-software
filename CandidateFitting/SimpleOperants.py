@@ -95,15 +95,15 @@ def AverageXYpos(candidate_dic,settings,**kwargs):
 
     if multithread == True: num_cores = multiprocessing.cpu_count()
     else: num_cores = 1
-    
+
     # Determine number of jobs on CPU and slice data accordingly
     njobs, num_cores = utilsHelper.nb_jobs(candidate_dic, num_cores)
-    data_split = utilsHelper.slice_data(candidate_dic, njobs) 
+    data_split = utilsHelper.slice_data(candidate_dic, njobs)
     logging.info("Candidate fitting split in "+str(njobs)+" job(s) and divided on "+str(num_cores)+" core(s).")
 
     # Determine all localizations
     RES = Parallel(n_jobs=num_cores,backend="loky")(delayed(localize_canditates2D)(i, data_split[i], time_fit, pixel_size, dist_func) for i in range(len(data_split)))
-    
+
     localization_list = [res[0] for res in RES]
     if len(localization_list) == 0:
         localization_list = [pd.DataFrame()]
@@ -113,7 +113,7 @@ def AverageXYpos(candidate_dic,settings,**kwargs):
     if len(fail_list) == 0:
         fail_list = [pd.DataFrame()]
     fails = pd.concat(fail_list, ignore_index=True)
-    
+
     # Fit performance information
     average_fit_info = utilsHelper.info(localizations, fails)
 

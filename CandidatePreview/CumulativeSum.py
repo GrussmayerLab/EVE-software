@@ -108,7 +108,7 @@ def CumulativeSum(findingResult, fittingResult, previewEvents, figure, settings,
             ax.plot(times, lognorm_cdf.fit.func(times, *opt), color='black', label='Lognormal CDF fit (neg)')
             ax.axvline(x=t, color='maroon', label='Fitted time (neg)')
             # ax.axvspan(t-del_t, t+del_t, alpha=0.1, color='maroon')
-    
+
     # first events
     if show_first==True and use_background_parameters==True:
         if weigh_first!=True:
@@ -132,7 +132,7 @@ def CumulativeSum(findingResult, fittingResult, previewEvents, figure, settings,
         else:
             lognorm_cdf = timeFitting.LognormCDFFirstEvents_weighted()
             t, del_t, fit_info, opt = lognorm_cdf(findingResult, fittingResult)
-            
+
             ax.errorbar(lognorm_cdf.fit.times, lognorm_cdf.fit.cumsum, yerr=lognorm_cdf.sigma, color='C2', marker='.', markersize=5, mfc='darkgreen', label='Cumulative sum (first, weighted)', zorder=-1)
             if show_fits== True and np.isnan(opt[0]):
                 # Fit failed, add info to text
@@ -170,7 +170,7 @@ def CumulativeSum(findingResult, fittingResult, previewEvents, figure, settings,
         else:
             lognorm_cdf = timeFitting.LognormCDFFirstEvents_weighted()
             t, del_t, fit_info, opt = lognorm_cdf(findingResult, fittingResult)
-            
+
             ax.errorbar(lognorm_cdf.fit.times, lognorm_cdf.fit.cumsum, yerr=lognorm_cdf.sigma, color='C2', marker='.', markersize=5, mfc='darkgreen', label='Cumulative sum (first, weighted)', zorder=-1)
             if show_fits== True and np.isnan(opt[0]):
                 # Fit failed, add info to text
@@ -226,6 +226,6 @@ def CumulativeSum(findingResult, fittingResult, previewEvents, figure, settings,
     ax.set_ylabel('cumulative number of events')
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     figure.tight_layout()
-    
+
     # required output none
     return 1

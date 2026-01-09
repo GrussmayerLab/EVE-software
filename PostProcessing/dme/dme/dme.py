@@ -6,17 +6,17 @@ import os
 from .native_api import NativeAPI
 
 from .rcc import rcc, rcc3D
-        
-def dme_estimate(positions, framenum, crlb, framesperbin, imgshape, 
+
+def dme_estimate(positions, framenum, crlb, framesperbin, imgshape,
           coarseFramesPerBin=None,
-          coarseSigma=None, 
+          coarseSigma=None,
           perSpotCRLB=False,
           useCuda=False,
           display=True, # make a plot
           pixelsize=None,
-          maxspots=None, 
-          initializeWithRCC=10, 
-          initialEstimate=None, 
+          maxspots=None,
+          initializeWithRCC=10,
+          initialEstimate=None,
           rccZoom=2,
           estimatePrecision=True,
           maxNeighbors=1000,
@@ -57,32 +57,32 @@ def dme_estimate(positions, framenum, crlb, framesperbin, imgshape,
     
     """
     ndims = positions.shape[1]
-    
+
     if numframes is None:
         numframes = np.max(framenum)+1
 
     initial_drift = np.zeros((numframes,ndims))
-    
+
     with NativeAPI(useCuda, debugMode=useDebugLibrary) as dll:
 
         if initialEstimate is not None:
             initial_drift = np.ascontiguousarray(initialEstimate,dtype=np.float32)
             assert initial_drift.shape[1] == ndims
-            
+
         elif initializeWithRCC:
             if type(initializeWithRCC) == bool:
                 initializeWithRCC = 10
-    
-            posI = np.ones((len(positions),positions.shape[1]+1)) 
+
+            posI = np.ones((len(positions),positions.shape[1]+1))
             posI[:,:-1] = positions
-    
+
             if positions.shape[1] == 3:
                 initial_drift = rcc3D(posI, framenum, initializeWithRCC, dll=dll, zoom=rccZoom)
             else:
                 initial_drift = rcc(posI, framenum ,initializeWithRCC, dll=dll, zoom=rccZoom)[0]
-            
-    
-            
+
+
+
         if maxspots is not None and maxspots < len(positions):
             print(f"Drift correction: Limiting spot count to {maxspots}/{len(positions)} spots.")
             bestspots = np.argsort(np.prod(crlb,1))
@@ -90,18 +90,18 @@ def dme_estimate(positions, framenum, crlb, framesperbin, imgshape,
             crlb = crlb[indices]
             positions = positions[indices]
             framenum = framenum[indices]
-        
+
         if not perSpotCRLB:
             crlb = np.mean(crlb,0)[:ndims]
-            
+
         step = 0.000001
 
         splitAxis = np.argmax( np.var(positions[:,:2],0) ) # only in X or Y
         splitValue = np.median(positions[:,splitAxis])
-        
+
         set1 = positions[:,splitAxis] > splitValue
         set2 = np.logical_not(set1)
-        
+
         if perSpotCRLB:
             print("Using drift correction with per-spot CRLB")
             crlb_set1 = crlb[set1]
@@ -109,27 +109,27 @@ def dme_estimate(positions, framenum, crlb, framesperbin, imgshape,
         else:
             crlb_set1 = crlb
             crlb_set2 = crlb
-                            
+
         maxdrift=0 # ignored at the moment
         if coarseFramesPerBin is not None:
-            
+
             assert len(coarseSigma) == positions.shape[1]
-            
+
             print(f"Computing initial coarse drift estimate... ({coarseFramesPerBin} frames/bin)",flush=True)
             with tqdm.tqdm() as pbar:
-                def update_pbar(i,info,drift_est): 
+                def update_pbar(i,info,drift_est):
                     pbar.set_description(info); pbar.update(1)
                     if traces is not None:
                         traces.append(drift_est.copy())
                     return 1
-    
+
                 initial_drift,score = dll.MinEntropyDriftEstimate(
-                    positions, framenum, initial_drift*1, coarseSigma, coarseMaxIterations, step, maxdrift, 
+                    positions, framenum, initial_drift*1, coarseSigma, coarseMaxIterations, step, maxdrift,
                     framesPerBin=coarseFramesPerBin, cuda=useCuda,progcb=update_pbar)
-                
+
         print(f"\nEstimating drift... ({framesperbin} frames/bin)",flush=True)
         with tqdm.tqdm() as pbar:
-            def update_pbar(i,info,drift_est): 
+            def update_pbar(i,info,drift_est):
                 pbar.set_description(info);pbar.update(1)
                 if traces is not None:
                     traces.append(drift_est.copy())
@@ -138,21 +138,21 @@ def dme_estimate(positions, framenum, crlb, framesperbin, imgshape,
             drift,score = dll.MinEntropyDriftEstimate(
                 positions, framenum, initial_drift*1, crlb, maxIterations, step, maxdrift, framesPerBin=framesperbin, maxneighbors=maxNeighbors,
                 cuda=useCuda, progcb=update_pbar)
-                
+
         if estimatePrecision:
             print(f"\nComputing drift estimation precision... (Splitting axis={splitAxis})",flush=True)
             with tqdm.tqdm() as pbar:
-                def update_pbar(i,info,drift_est): 
+                def update_pbar(i,info,drift_est):
                     pbar.set_description(info);pbar.update(1)
                     return 1
                 drift_set1,score_set1 = dll.MinEntropyDriftEstimate(
-                    positions[set1], framenum[set1], initial_drift*1, crlb_set1, maxIterations, step, maxdrift, 
+                    positions[set1], framenum[set1], initial_drift*1, crlb_set1, maxIterations, step, maxdrift,
                     framesPerBin=framesperbin,cuda=useCuda, progcb=update_pbar)
-    
+
                 drift_set2,score_set2 = dll.MinEntropyDriftEstimate(
-                    positions[set2], framenum[set2], initial_drift*1, crlb_set2, maxIterations, step, maxdrift, 
+                    positions[set2], framenum[set2], initial_drift*1, crlb_set2, maxIterations, step, maxdrift,
                     framesPerBin=framesperbin,cuda=useCuda,progcb=update_pbar)
-    
+
         drift -= np.mean(drift,0)
 
         if estimatePrecision:
@@ -167,7 +167,7 @@ def dme_estimate(positions, framenum, crlb, framesperbin, imgshape,
         if display:
             L=len(drift)
             fig,ax=plt.subplots(ndims,1,sharex=True,figsize=(10,8),dpi=100)
-            
+
             axnames = ['X', 'Y', 'Z']
             axunits = ['px', 'px', 'um']
             for i in range(ndims):
@@ -181,20 +181,20 @@ def dme_estimate(positions, framenum, crlb, framesperbin, imgshape,
                 ax[i].set_ylabel(f'Drift {axname} [{axunit}]')
                 ax[i].set_xlabel('Frame number')
                 if i==0: ax[i].legend(fontsize=12)
-            
+
             if estimatePrecision:
                 if pixelsize is not None:
                     p=rmsd
                     scale = [pixelsize, pixelsize, 1000]
                     info = ';'.join([ f'{axnames[i]}: {p[i]*scale[i]:.1f} nm ({p[i]:.3f} {axunits[i]})' for i in range(ndims)])
-                    
+
                     plt.suptitle(f'Drift trace. RMSD: {info}')
                 else:
                     plt.suptitle(f'Drift trace. RMSD: X/Y={rmsd[1]:.3f}/{rmsd[1]:.3f} pixels')
 
         if estimatePrecision:
             return drift, (drift_set1, drift_set2)
-                                
+
         return drift
 
 

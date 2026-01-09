@@ -9,7 +9,8 @@ except ImportError:
     from TemporalFitting import timeFitting
 import pandas as pd
 import numpy as np
-import time, logging
+import time
+import logging
 from scipy import optimize
 import warnings
 from sklearn.metrics import mean_squared_error
@@ -73,11 +74,11 @@ class phasor():
         self.t_hist = self.t_hist.ravel()
 
     def __call__(self, candidate, time_fit, candidate_id, **kwargs):#(self, candidate, time_func, **kwargs):
-        
+
         #Perform 2D Fourier transform over the xy ROI
         self.image_sq = self.image.reshape(((self.ylim[1]-self.ylim[0]+1), (self.xlim[1]-self.xlim[0]+1)))
         ROI_F = np.fft.fft2(self.image_sq)
-        #We have to calculate the phase angle of array entries [0,1] and [1,0] for 
+        #We have to calculate the phase angle of array entries [0,1] and [1,0] for
         #the sub-pixel x and y values, respectively
         #This phase angle can be calculated as follows:
         xangle = np.arctan(ROI_F[0,1].imag/ROI_F[0,1].real) - np.pi
@@ -86,14 +87,14 @@ class phasor():
             xangle -= 2*np.pi
         #Calculate position based on the ROI size
         PositionX = abs(xangle)/(2*np.pi/((self.xlim[1]-self.xlim[0]+1)+1))
-        
+
         yangle = np.arctan(ROI_F[1,0].imag/ROI_F[1,0].real) - np.pi
         #Correct in case it's positive
         if yangle > 0:
             yangle -= 2*np.pi
         #Calculate position based on the ROI size
         PositionY = abs(yangle)/(2*np.pi/((self.ylim[1]-self.ylim[0]+1)+1))
-        
+
         ROI_FFT_t = np.fft.fft(self.t_hist)
         tangle = np.arctan(ROI_FFT_t[1].imag/ROI_FFT_t[1].real) - np.pi
         #Correct in case it's positive
@@ -101,11 +102,11 @@ class phasor():
             tangle -= 2*np.pi
         #Calculate position based on the ROI size
         PositionT = (abs(tangle)/(2*np.pi))*((self.tlim_scaled[1]-self.tlim_scaled[0]+1)+1)
-        
+
         x = (PositionX+self.xlim[0])*self.pixel_size # in nm
         y = (PositionY+self.ylim[0])*self.pixel_size # in nm
         t = ((PositionT+self.tlim_scaled[0])*self.msscale) # in ms
-        
+
         mean_polarity = candidate['events']['p'].mean()
         p = int(mean_polarity == 1) + int(mean_polarity == 0) * 0 + int(mean_polarity > 0 and mean_polarity < 1) * 2
         loc_df = pd.DataFrame({'candidate_id': candidate_id, 'x': x, 'y': y, 'p': p, 't': t, 'N_events': candidate['N_events'], 'x_dim': candidate['cluster_size'][1], 'y_dim': candidate['cluster_size'][0], 't_dim': candidate['cluster_size'][2]*1e-3, 'fit_info': ''}, index=[0])
@@ -123,11 +124,11 @@ class phasor_customTimeFit(fit):
         self.tlim = [np.min(events['t']), np.max(events['t'])]
 
     def __call__(self, candidate, time_fit, candidate_id, **kwargs):#(self, candidate, time_func, **kwargs):
-        
+
         #Perform 2D Fourier transform over the xy ROI
         self.image_sq = self.image.reshape(((self.ylim[1]-self.ylim[0]+1), (self.xlim[1]-self.xlim[0]+1)))
         ROI_F = np.fft.fft2(self.image_sq)
-        #We have to calculate the phase angle of array entries [0,1] and [1,0] for 
+        #We have to calculate the phase angle of array entries [0,1] and [1,0] for
         #the sub-pixel x and y values, respectively
         #This phase angle can be calculated as follows:
         xangle = np.arctan(ROI_F[0,1].imag/ROI_F[0,1].real) - np.pi
@@ -136,21 +137,21 @@ class phasor_customTimeFit(fit):
             xangle -= 2*np.pi
         #Calculate position based on the ROI size
         PositionX = abs(xangle)/(2*np.pi/((self.xlim[1]-self.xlim[0]+1)+1))
-        
+
         yangle = np.arctan(ROI_F[1,0].imag/ROI_F[1,0].real) - np.pi
         #Correct in case it's positive
         if yangle > 0:
             yangle -= 2*np.pi
         #Calculate position based on the ROI size
         PositionY = abs(yangle)/(2*np.pi/((self.ylim[1]-self.ylim[0]+1)+1))
-        
+
         t, del_t, t_fit_info, opt_t = time_fit(candidate['events'], np.array([np.nan])) # t, del_t in ms
         if t_fit_info != '':
             self.fit_info = t_fit_info
-        
+
         x = (PositionX+self.xlim[0])*self.pixel_size # in nm
         y = (PositionY+self.ylim[0])*self.pixel_size # in nm
-        
+
         mean_polarity = candidate['events']['p'].mean()
         p = int(mean_polarity == 1) + int(mean_polarity == 0) * 0 + int(mean_polarity > 0 and mean_polarity < 1) * 2
         loc_df = pd.DataFrame({'candidate_id': candidate_id, 'x': x, 'y': y, 'p': p, 't': t, 'del_t': del_t, 'N_events': candidate['N_events'], 'x_dim': candidate['cluster_size'][1], 'y_dim': candidate['cluster_size'][0], 't_dim': candidate['cluster_size'][2]*1e-3, 'fit_info': ''}, index=[0])
@@ -205,7 +206,7 @@ def PhasorFitting(candidate_dic,settings,**kwargs):
 
     if multithread == True: num_cores = multiprocessing.cpu_count()
     else: num_cores = 1
-    
+
     # Determine number of jobs on CPU and slice data accordingly
     njobs, num_cores = utilsHelper.nb_jobs(candidate_dic, num_cores)
     data_split = utilsHelper.slice_data(candidate_dic, njobs)
@@ -217,7 +218,7 @@ def PhasorFitting(candidate_dic,settings,**kwargs):
 
     localization_list = [res for res in RES]
     localizations = pd.concat(localization_list)
-    
+
     phasor_fit_info = ''
 
     return localizations, phasor_fit_info
@@ -237,7 +238,7 @@ def PhasorFitting_customTimeFit(candidate_dic,settings,**kwargs):
 
     if multithread == True: num_cores = multiprocessing.cpu_count()
     else: num_cores = 1
-    
+
     # Determine number of jobs on CPU and slice data accordingly
     njobs, num_cores = utilsHelper.nb_jobs(candidate_dic, num_cores)
     data_split = utilsHelper.slice_data(candidate_dic, njobs)
@@ -249,7 +250,7 @@ def PhasorFitting_customTimeFit(candidate_dic,settings,**kwargs):
 
     localization_list = [res for res in RES]
     localizations = pd.concat(localization_list)
-    
+
     phasor_fit_info = ''
 
     return localizations, phasor_fit_info

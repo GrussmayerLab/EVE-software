@@ -32,26 +32,25 @@ def histogramming(localizations,findingResult,settings,**kwargs):
     """
     Histogram result data
     """
-    
+
     #Check if we have the required kwargs
     [provided_optional_args, missing_optional_args] = utilsHelper.argumentChecking(__function_metadata__(),inspect.currentframe().f_code.co_name,kwargs) #type:ignore
 
     orig_len_localizations = len(localizations)
-    
+
     # Start the timer
     start_time = time.time()
-    
+
     key = kwargs['Value']
-    
+
     if key not in localizations.columns:
         logging.error(f"Key {key} not found in localizations. Possible keys: {localizations.columns}")
         return None
-    
+
     data_to_hist = localizations[key]
     from matplotlib import pyplot as plt
-    import numpy as np
     from scipy import stats
-    
+
     # Calculate statistics
     mean_val = np.mean(data_to_hist)
     median_val = np.median(data_to_hist)
@@ -80,6 +79,6 @@ def histogramming(localizations,findingResult,settings,**kwargs):
 
     plt.tight_layout()
     plt.show()
-    
+
     #Required output: localizations, metadata - or None to ignore in postprocess history
     return None

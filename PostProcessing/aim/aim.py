@@ -80,7 +80,7 @@ def count_intersections(l0_coords, l0_counts, l1_coords, l1_counts):
     """
 
     # indices of common elements
-    idx0, idx1 = intersect1d(l0_coords, l1_coords) 
+    idx0, idx1 = intersect1d(l0_coords, l1_coords)
     # extract the counts of these elements
     l0_counts_subset = l0_counts[idx0]
     l1_counts_subset = l1_counts[idx1]
@@ -120,7 +120,7 @@ def run_intersections(
         2D array with number of intersections across the local search 
         region.
     """
-    
+
     # create the 2D array with shifts
     roi_cc = _np.zeros(shifts_xy.shape, dtype=_np.int32)
     # shift target coordinates
@@ -162,18 +162,18 @@ def run_intersections_multithread(
         2D array with number of intersections across the local search 
         region.
     """
-    
+
     # shift target coordinates
     l1_coords_shifted = l1_coords[:, _np.newaxis] + shifts_xy
     # run multiple threads
-    n_workers = len(shifts_xy) 
+    n_workers = len(shifts_xy)
     executor = _ThreadPoolExecutor(n_workers)
     f = [
         executor.submit(
-            count_intersections, 
-            l0_coords, 
-            l0_counts, 
-            l1_coords_shifted[:, i], 
+            count_intersections,
+            l0_coords,
+            l0_counts,
+            l1_coords_shifted[:, i],
             l1_counts,
         )
         for i in range(len(shifts_xy))
@@ -233,9 +233,9 @@ def point_intersect_2d(
 
 
 def point_intersect_3d(
-    l0_coords, l0_counts, x1, y1, z1, 
+    l0_coords, l0_counts, x1, y1, z1,
     intersect_d, width_units, height_units, shifts_z,
-): 
+):
     """Converts target coordinates into a 1D array in units of 
     intersect_d and counts the number of intersections in the local
     search region.
@@ -273,8 +273,8 @@ def point_intersect_3d(
     y1_units = _np.round(y1 / intersect_d)
     z1_units = _np.round(z1 / intersect_d)
     l1 = _np.int32(
-        x1_units 
-        + y1_units * width_units 
+        x1_units
+        + y1_units * width_units
         + z1_units * width_units * height_units
     ) # 1d list
     # get unique values and counts of the target localizations
@@ -304,17 +304,17 @@ def get_fft_peak(roi_cc, roi_size):
     py : float
         Estimated y-coordinate of the peak.
     """
-    
-    fft_values = _np.fft.fft2(roi_cc.T) 
-    ang_x = _np.angle(fft_values[0, 1]) 
+
+    fft_values = _np.fft.fft2(roi_cc.T)
+    ang_x = _np.angle(fft_values[0, 1])
     ang_x = ang_x - 2 * _np.pi * (ang_x > 0) # normalize
     px = (
         _np.abs(ang_x) / (2 * _np.pi / roi_cc.shape[0])
         - (roi_cc.shape[0] - 1) / 2
     ) # peak in x
     px *= roi_size / roi_cc.shape[0] # convert to intersect_d units
-    ang_y = _np.angle(fft_values[1, 0]) 
-    ang_y = ang_y - 2 * _np.pi * (ang_y > 0) # normalize 
+    ang_y = _np.angle(fft_values[1, 0])
+    ang_y = ang_y - 2 * _np.pi * (ang_y > 0) # normalize
     py = (
         _np.abs(ang_y) / (2 * _np.pi / roi_cc.shape[1])
         - (roi_cc.shape[1] - 1) / 2
@@ -340,8 +340,8 @@ def get_fft_peak_z(roi_cc, roi_size):
         Estimated z-coordinate of the peak.
     """
 
-    fft_values = _np.fft.fft(roi_cc) 
-    ang_z = _np.angle(fft_values[1]) 
+    fft_values = _np.fft.fft(roi_cc)
+    ang_z = _np.angle(fft_values[1])
     ang_z = ang_z - 2 * _np.pi * (ang_z > 0) # normalize
     pz = (
         _np.abs(ang_z) / (2 * _np.pi / roi_cc.size)
@@ -352,8 +352,8 @@ def get_fft_peak_z(roi_cc, roi_size):
 
 
 def intersection_max(
-    x, y, ref_x, ref_y, 
-    frame, seg_bounds, intersect_d, roi_r, width, 
+    x, y, ref_x, ref_y,
+    frame, seg_bounds, intersect_d, roi_r, width,
     aim_round=1, progress=None,
 ):
     """Maximize intersection (undrift) for 2D localizations.
@@ -408,8 +408,8 @@ def intersection_max(
     rel_drift_y = 0
 
     # drift in x and y
-    drift_x = _np.zeros(n_segments) 
-    drift_y = _np.zeros(n_segments) 
+    drift_x = _np.zeros(n_segments)
+    drift_y = _np.zeros(n_segments)
 
     # find shifts for the local search region (in units of intersect_d)
     roi_units = int(_np.ceil(roi_r / intersect_d))
@@ -435,10 +435,10 @@ def intersection_max(
         iterator = range(start_idx, n_segments)
     else:
         iterator = _tqdm(
-            range(start_idx, n_segments), 
-            desc=f"Undrifting ({aim_round}/2)", 
+            range(start_idx, n_segments),
+            desc=f"Undrifting ({aim_round}/2)",
             unit="segment",
-        ) 
+        )
 
     # run across each segment
     for s in iterator:
@@ -460,17 +460,17 @@ def intersection_max(
 
         # count the number of intersected localizations
         roi_cc = point_intersect_2d(
-            l0_coords, l0_counts, x1, y1, 
+            l0_coords, l0_counts, x1, y1,
             intersect_d, width_units, shifts_xy, box,
         )
 
-        # estimate the precise sub-pixel position of the peak of roi_cc 
-        # with FFT 
+        # estimate the precise sub-pixel position of the peak of roi_cc
+        # with FFT
         px, py = get_fft_peak(roi_cc, 2 * roi_r)
 
-        # update the relative drift reference for the subsequent 
+        # update the relative drift reference for the subsequent
         # segmented subset (interval) and save the drifts
-        rel_drift_x += px 
+        rel_drift_x += px
         rel_drift_y += py
         drift_x[s] = -rel_drift_x
         drift_y[s] = -rel_drift_y
@@ -532,11 +532,11 @@ def intersection_max_z(
     y0_units = _np.round(ref_y / intersect_d)
     z0_units = _np.round(ref_z / intersect_d)
     l0 = _np.int32(
-        x0_units 
-        + y0_units * width_units 
+        x0_units
+        + y0_units * width_units
         + z0_units * width_units * height_units
     ) # 1d list
-    l0_coords, l0_counts = _np.unique(l0, return_counts=True) 
+    l0_coords, l0_counts = _np.unique(l0, return_counts=True)
 
     # initialize progress such that if GUI is used, tqdm is omitted
     start_idx = 1 if aim_round == 1 else 0
@@ -544,8 +544,8 @@ def intersection_max_z(
         iterator = range(start_idx, n_segments)
     else:
         iterator = _tqdm(
-            range(start_idx, n_segments), 
-            desc=f"Undrifting z ({aim_round}/2)", 
+            range(start_idx, n_segments),
+            desc=f"Undrifting z ({aim_round}/2)",
             unit="segment",
         )
 
@@ -572,11 +572,11 @@ def intersection_max_z(
             intersect_d, width_units, height_units, shifts_z,
         )
 
-        # estimate the precise sub-pixel position of the peak of roi_cc 
-        # with FFT 
+        # estimate the precise sub-pixel position of the peak of roi_cc
+        # with FFT
         pz = get_fft_peak_z(roi_cc, 2 * roi_r)
 
-        # update the relative drift reference for the subsequent 
+        # update the relative drift reference for the subsequent
         # segmented subset (interval) and save the drifts
         rel_drift_z += pz
         drift_z[s] = -rel_drift_z
@@ -586,7 +586,7 @@ def intersection_max_z(
             progress.set_value(s)
         else:
             iterator.update(s - iterator.n)
-        
+
 
     # interpolate the drifts (cubic spline) for all frames
     t = (seg_bounds[1:] + seg_bounds[:-1]) / 2
@@ -601,14 +601,14 @@ def intersection_max_z(
     z_pdc *= pixelsize
     drift_z *= pixelsize
 
-    return z_pdc, drift_z    
+    return z_pdc, drift_z
 
 
 # def aim(
-#     locs, 
+#     locs,
 #     info,
-#     segmentation=100, 
-#     intersect_d=20/130, 
+#     segmentation=100,
+#     intersect_d=20/130,
 #     roi_r=60/130,
 #     progress=None,
 # ):
@@ -625,12 +625,12 @@ def intersection_max_z(
 #     segmentation : int
 #         Time interval for drift tracking, unit: frames.
 #     roi_r : float
-#         Radius of the local search region in camera pixels. Should be 
+#         Radius of the local search region in camera pixels. Should be
 #         larger than the  maximum expected drift within segmentation.
 #     progress : picasso.lib.ProgressDialog (default=None)
-#         Progress dialog. If None, progress is displayed with into the 
+#         Progress dialog. If None, progress is displayed with into the
 #         console.
-    
+
 #     Returns
 #     -------
 #     locs : _np.rec.array
@@ -686,10 +686,10 @@ def intersection_max_z(
 #     #     drift_z -= shift_z
 #     #     z_pdc += shift_z
 #     #     drift = _np.rec.array(
-#     #         (drift_x, drift_y, drift_z), 
+#     #         (drift_x, drift_y, drift_z),
 #     #         dtype=[("x", "f"), ("y", "f"), ("z", "f")]
 #     #     )
-    
+
 #     # apply the drift to localizations
 #     locs["x"] = x_pdc
 #     locs["y"] = y_pdc

@@ -31,12 +31,12 @@ def PseudoScatter(resultArray,settings,**kwargs):
 
     # Start the timer
     start_time = time.time()
-    
+
     zoomvalue=float(kwargs['ZoomValue'])
-    
+
     #Idea: create an empty array with the right size, i.e. ZoomValue times bigger than the maximum size of the results.
     #Then simply increase the value of the pixels in that array based on resultArray
-    
+
     #Get the min/max bounds in pixel units:
     xoffset = np.min(resultArray['x']) / settings['PixelSize_nm']['value']
     maxx = np.max(resultArray['x']) / settings['PixelSize_nm']['value']
@@ -47,7 +47,7 @@ def PseudoScatter(resultArray,settings,**kwargs):
     miny = 0
     maxx = maxx - xoffset
     maxy = maxy - yoffset
-    
+
     #Create the upscaled image:
     upScaledImage = np.zeros((int(maxx*zoomvalue),int(maxy*zoomvalue)))
     #Loop through the results:
@@ -61,7 +61,7 @@ def PseudoScatter(resultArray,settings,**kwargs):
                     x,y = int(np.floor((resultArray['x'][i] / settings['PixelSize_nm']['value'] - xoffset)*zoomvalue)), int(np.floor((resultArray['y'][i] / settings['PixelSize_nm']['value'] - yoffset)*zoomvalue))
                     if x>=0 and y>=0 and x<upScaledImage.shape[0] and y<upScaledImage.shape[1]:
                         upScaledImage[x,y] += 1
-    
+
     # Stop the timer
     end_time = time.time()
 

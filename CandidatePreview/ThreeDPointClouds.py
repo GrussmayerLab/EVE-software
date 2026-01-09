@@ -94,6 +94,6 @@ def ThreeDPointCloud(findingResult, fittingResult, previewEvents, figure, settin
     ax.plot(fittingResult['x']/pixel_size, fittingResult['y']/pixel_size, fittingResult['t'], marker='x', c='red', label='Localization(s)')
     ax.legend(loc='upper right', bbox_to_anchor=(2.0, 1))
 
-    
+
     # required output none
     return 1

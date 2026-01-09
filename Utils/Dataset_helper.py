@@ -60,8 +60,8 @@ def detectHotPixels_run(loadfile,maxTime,stdevString,outputArea,buttonTransfer=N
             events = events[events['t'] <= maxTime*1000]
     else:
         print('File type not supported')
-    
-    
+
+
     #Now that we have the events, lets find out if we have hot pixels
     minx = min(events['x'])
     maxx = max(events['x'])
@@ -94,16 +94,16 @@ def detectHotPixels_run(loadfile,maxTime,stdevString,outputArea,buttonTransfer=N
         eventsatthispixel = len(events[(events['x'] == x) & (events['y'] == y)])
         logging.info(f"Hotpixel: {x},{y} | {eventsatthispixel} ev ({(eventsatthispixel-meanTotEvents)/stdTotEvents:.2g}x std)")
         totnrhotpixelevents+=eventsatthispixel
-    
+
     logging.info(f"Total number of events at hot pixels: {totnrhotpixelevents}")
     logging.info(f"Fraction of events that are in hot pixels: {totnrhotpixelevents/len(events)*100}%")
-    
+
     outputTextv += f"Total events at hot pixels: {totnrhotpixelevents}\n"
     outputTextv += f"% of events in hot pixels: {totnrhotpixelevents/len(events)*100:.1f}%\n"
     for x,y in zip(hotPixels[0],hotPixels[1]):
         eventsatthispixel = len(events[(events['x'] == x) & (events['y'] == y)])
         outputTextv += f"Hotpixel: {x},{y} | {eventsatthispixel} ev ({(eventsatthispixel-meanTotEvents)/stdTotEvents:.2g}x std)\n"
-        
+
     outputArea.setText(outputTextv)
     if buttonTransfer is not None:
         buttonTransfer.setEnabled(True)
@@ -116,7 +116,7 @@ def transferOutputToAdvSettings_prewarn(parent):
         from eve_smlm.Utils import utils
     except ImportError:
         from Utils import utils
-        
+
     global hotPixels
     if hotPixels is not None:
         if len(hotPixels) > 0:
@@ -140,7 +140,7 @@ def transferOutputToAdvSettings_prewarn(parent):
         warningwindow.show()
     else:
         transferOutputToAdvSettings(parent,fulltext)
-    
+
 def transferOutputToAdvSettings(parent,fulltext,warningwindow=None):
     """
     Actually sets the hotpixelindex to whatever is in fulltext.
@@ -166,23 +166,23 @@ def detectHotPixels(parent,**kwargs):#(dataLocation,xyStretch=(-np.Inf,-np.Inf,n
     window = utils.SmallWindow(parent,windowTitle="Detect Hot Pixels")
     window.addDescription("Detect likely hot pixels")
     loadfileloc = window.addFileLocation()
-    
+
     maxTimeText = window.addTextEdit(labelText="Maximum time (in ms):",preFilledText="50000")
     stdevMultText = window.addTextEdit(labelText="Stdev multiplier:",preFilledText="5")
-    
+
     outputText = window.addMultiLineTextEdit(labelText="Output:",preFilledText="Nothing yet, Run first")
     # outputText.setEnabled(False)
     outputText.setStyleSheet("background-color: lightgray;")
     outputText.setReadOnly(True)
-    
-    
+
+
     buttonTransfer = window.addButton("Transfer output to Adv settings")
     buttonTransfer.clicked.connect(lambda: transferOutputToAdvSettings_prewarn(parent))
     buttonTransfer.setEnabled(False)
-    
+
     button = window.addButton("Run")
     button.clicked.connect(lambda: detectHotPixels_run(loadfileloc.text(),maxTimeText.text(),stdevMultText.text(),outputText,buttonTransfer))
-    
+
     window.show()
-    
+
     pass

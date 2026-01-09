@@ -6,7 +6,8 @@ except ImportError:
 import pandas as pd
 import numpy as np
 import time
-import scipy, logging
+import scipy
+import logging
 # Required function __function_metadata__
 # Should have an entry for every function in this file
 def __function_metadata__():
@@ -33,15 +34,15 @@ def create_kernel(size):
         size += 1
         logging.info(f'Kerning size was even, made odd and changed to size {size}')
     kernel = np.zeros((size,size))
-    
+
     center = (size/2-.5,size/2-.5)
-    
-    
+
+
     for xx in range(size):
         for yy in range(size):
             dist_to_center = np.ceil(np.sqrt((xx-center[0])**2+(yy-center[1])**2))
             kernel[xx,yy] = max(0,center[0]+1-dist_to_center)
-            
+
     return kernel
 
 def Histogram_convolution(resultArray,settings,**kwargs):
@@ -50,20 +51,20 @@ def Histogram_convolution(resultArray,settings,**kwargs):
 
     # Start the timer
     start_time = time.time()
-    
+
     #Get pixels sizes for the histogram and kernel
     pxsizeHist = float(kwargs['PxSize'])
     pxsizeKernel = float(kwargs['Convolution_kernel'])
-    
+
     #Set them to 'magnification' and 'kernel size in px'
     zoomvalue = float(settings['PixelSize_nm']['value'])/pxsizeHist
     KernelWidthPx = int(round(pxsizeKernel/pxsizeHist))
-    
+
     # zoomvalue=float(kwargs['ZoomValue'])
-    
+
     #Idea: create an empty array with the right size, i.e. ZoomValue times bigger than the maximum size of the results.
     #Then simply increase the value of the pixels in that array based on resultArray
-    
+
     #Get the min/max bounds in pixel units:
     xoffset = np.min(resultArray['x']) / float(settings['PixelSize_nm']['value'])
     maxx = np.max(resultArray['x']) / float(settings['PixelSize_nm']['value'])
@@ -74,20 +75,20 @@ def Histogram_convolution(resultArray,settings,**kwargs):
     miny = 0
     maxx = maxx - xoffset
     maxy = maxy - yoffset
-    
-    #Take resultArray and remove all nan-entries:   
+
+    #Take resultArray and remove all nan-entries:
     data = resultArray[['x','y']].dropna() / float(settings['PixelSize_nm']['value'])
     data['x'] -= xoffset
     data['y'] -= yoffset
-    
-    
+
+
     histogram_original = np.histogram2d(data['x'], data['y'], range=[[minx, maxx], [miny, maxy]],
                                     bins=[int(maxx*zoomvalue), int(maxy*zoomvalue)])
-    
+
     kernel = create_kernel(KernelWidthPx)
-    
+
     histogram_convolved = scipy.signal.convolve2d(histogram_original[0], kernel, mode='same')
-    
+
     # Stop the timer
     end_time = time.time()
 

@@ -111,7 +111,7 @@ def TwoDFirstEvents(findingResult, fittingResult, previewEvents, figure, setting
 
     # scatter first events and do 2d Gaussian fit
     ax_gaussfit.scatter(first_events['x'], first_events['y'], first_events['t']*1e-3, color='C2')#, label='First events')
-    
+
     gaussian_fit = timeFitting.TwoDGaussianFirstTime()
     opt_loc = [(fittingResult['x']/pixel_size-np.min(findingResult['x'])).iloc[0], (fittingResult['y']/pixel_size-np.min(findingResult['y'])).iloc[0]]
     t, del_t, fit_info, opt = gaussian_fit(findingResult, opt_loc, use_weights=use_weights)
@@ -137,7 +137,7 @@ def TwoDFirstEvents(findingResult, fittingResult, previewEvents, figure, setting
         time_surface = ax_gaussfit.plot_surface(X,Y,np.ones_like(fit)*t, color='maroon', alpha=0.3, label='Fitted time')
         time_surface._edgecolors2d = time_surface._edgecolor3d
         time_surface._facecolors2d = time_surface._facecolor3d
-    
+
     ax_gaussfit.plot(fittingResult['x']/pixel_size, fittingResult['y']/pixel_size, fittingResult['t'], marker='x', c='red', label='Localization(s)')
 
     # Plot the sigma map
@@ -145,7 +145,7 @@ def TwoDFirstEvents(findingResult, fittingResult, previewEvents, figure, setting
     ax_weights.set_aspect('equal')
     ax_weights.format_coord = lambda x,y:format_coord_weights(x,y,gaussian_fit.fit.sigma_tot.reshape(gaussian_fit.fit.ylim, gaussian_fit.fit.xlim), x_edges, y_edges)
     ax_weights.plot(fittingResult['x']/pixel_size, fittingResult['y']/pixel_size, marker='x', c='red')
-    
+
     # Add legend
     ax_gaussfit.legend(ncol=2, bbox_to_anchor=(1.5, -0.25))
 

@@ -60,7 +60,7 @@ class Hist1d_t(TDist):
         self.range = self.range()
         self.bins = self.bins()
         self.dist1D, self.t_edges = self(events, **kwargs)
-    
+
     def set_t_bin_width(self, t_bin_width, events, **kwargs):
         self.t_bin_width = t_bin_width
         self.bins = self.bins()
@@ -68,7 +68,7 @@ class Hist1d_t(TDist):
 
     def range(self):
         return [self.tlim[0], self.tlim[1]]
-    
+
     def bins(self):
         tbins = int(np.ceil((self.tlim[1]-self.tlim[0])/self.t_bin_width))
         self.range[1] = self.tlim[0]+tbins*self.t_bin_width
@@ -96,8 +96,8 @@ class Hist2d_tx(XTDist):
         xrange = self.tlim
         yrange = [self.xlim[0]-0.5, self.xlim[1]+0.5]
         return [xrange, yrange]
-    
-    def bins(self): 
+
+    def bins(self):
         xbins = int(np.ceil((self.tlim[1]-self.tlim[0])/self.t_bin_width))
         ybins = int((self.xlim[1]-self.xlim[0]+1)/self.x_bin_width)
         self.range[0][1] = self.tlim[0]+xbins*self.t_bin_width
@@ -106,7 +106,7 @@ class Hist2d_tx(XTDist):
     def __call__(self, events, **kwargs):
         hist_tx, x_edges, y_edges = np.histogram2d(events['t']*1e-3, events['x'], bins = self.bins, range = tuple(self.range), **kwargs)
         return hist_tx.T, x_edges, y_edges
-    
+
 
 class Hist2d_ty(YTDist):
     def __init__(self, events, t_bin_width = 10., x_bin_width = 1., **kwargs):
@@ -126,8 +126,8 @@ class Hist2d_ty(YTDist):
         xrange = self.tlim
         yrange = [self.ylim[0]-0.5, self.ylim[1]+0.5]
         return [xrange, yrange]
-    
-    def bins(self): 
+
+    def bins(self):
         xbins = int(np.ceil((self.tlim[1]-self.tlim[0])/self.t_bin_width))
         ybins = int((self.ylim[1]-self.ylim[0]+1)/self.y_bin_width)
         self.range[0][1] = self.tlim[0]+xbins*self.t_bin_width
@@ -151,8 +151,8 @@ class Hist2d_xy(XYDist):
         xrange = [self.xlim[0]-0.5, self.xlim[1]+0.5]
         yrange = [self.ylim[0]-0.5, self.ylim[1]+0.5]
         return [xrange, yrange]
-    
-    def bins(self): 
+
+    def bins(self):
         xbins = int((self.xlim[1]-self.xlim[0]+1)/self.xy_bin_width)
         ybins = int((self.ylim[1]-self.ylim[0]+1)/self.xy_bin_width)
         return (xbins, ybins)
@@ -160,7 +160,7 @@ class Hist2d_xy(XYDist):
     def __call__(self, events, **kwargs):
         hist_xy, x_edges, y_edges = np.histogram2d(events['x'], events['y'], bins = self.bins, range = tuple(self.range), **kwargs)
         return hist_xy.T, x_edges, y_edges
-    
+
 class SumPolarity(XYDist):
     display_name = "Sum of polarities"
     description = "The sum of the polarities of all events for each pixel."
@@ -170,17 +170,17 @@ class SumPolarity(XYDist):
         self.range = self.range()
         self.bins = self.bins()
         self.dist2D, self.x_edges, self.y_edges = self(events)
-        
+
     def range(self):
         xrange = [self.xlim[0]-0.5, self.xlim[1]+0.5]
         yrange = [self.ylim[0]-0.5, self.ylim[1]+0.5]
         return [xrange, yrange]
-    
-    def bins(self): 
+
+    def bins(self):
         xbins = int((self.xlim[1]-self.xlim[0]+1)/self.xy_bin_width)
         ybins = int((self.ylim[1]-self.ylim[0]+1)/self.xy_bin_width)
         return (xbins, ybins)
-    
+
     def __call__(self, events):
         #Create a histogram of positive events
         pos_events = events[events['p']==1]
@@ -190,7 +190,7 @@ class SumPolarity(XYDist):
         histNeg_xy, x_edges, y_edges = np.histogram2d(neg_events['x'], neg_events['y'], bins = self.bins, range = self.range)
         #The sum of the polarities of all events for each pixel
         histxy = histPos_xy-histNeg_xy
-        
+
         return histxy.T, x_edges, y_edges
 
 class FirstTimestamp(XYDist):
@@ -206,16 +206,16 @@ class FirstTimestamp(XYDist):
         smallest_t = events.groupby(['x', 'y'])['t'].agg(['min', 'size']).reset_index()
         smallest_t.columns = ['x', 'y', 't', 'weight']
         return smallest_t
-    
+
     def trafo_gauss(self):
         self.max = np.nanmax(self.dist2D)
         self.dist2D = self.dist2D*(-1) + self.max
-    
+
     def undo_trafo_gauss(self, times):
         times = times - self.max
         times = times*(-1)
         return times
-    
+
     def __call__(self, events):
         smallest_t = self.get_smallest_t(events)
         self.weights = super().measure(smallest_t, measure='weight')
@@ -232,11 +232,11 @@ class AverageTimestamp(XYDist):
         average_t = events.groupby(['x', 'y'])['t'].agg(['mean', 'size']).reset_index()
         average_t.columns = ['x', 'y', 't', 'weight']
         return average_t
-    
+
     def __call__(self, events):
         average_t = self.get_average_t(events)
         return super().measure(average_t)
-    
+
 class MedianTimestamp(XYDist):
     display_name = "Median time/pixel"
     description = "The median timestamp of all events for each pixel."
@@ -248,18 +248,18 @@ class MedianTimestamp(XYDist):
         median_t = events.groupby(['x', 'y'])['t'].agg(['median', 'size']).reset_index()
         median_t.columns = ['x', 'y', 't', 'weight']
         return median_t
-    
+
     def __call__(self, events):
         median_t = self.get_median_t(events)
         return super().measure(median_t)
-    
+
 class AverageTimeDiff(XYDist):
     display_name = "Average time delay/pixel"
     description = "The average time difference between events for each pixel."
     def __init__(self, events):
         super().__init__(events)
         self.dist2D = self(events)
-    
+
     def get_averageTimeDiff(self, events):
         TimeDiff = events.groupby(['x', 'y'])['t'].diff().to_frame()
         TimeDiff['x'] = events['x']
@@ -267,18 +267,18 @@ class AverageTimeDiff(XYDist):
         averageTimeDiff = TimeDiff.groupby(['x', 'y'])['t'].agg(['mean', 'size']).reset_index()
         averageTimeDiff = averageTimeDiff.rename(columns = {'mean': 't', 'size': 'weight'})
         return averageTimeDiff
-    
+
     def __call__(self, events):
         averageTimeDiff = self.get_averageTimeDiff(events)
         return super().measure(averageTimeDiff)
-    
+
 class MinTimeDiff(XYDist):
     display_name = "Minimum time delay/pixel"
     description = "The minimum time difference between events for each pixel."
     def __init__(self, events):
         super().__init__(events)
         self.dist2D = self(events)
-    
+
     def get_minTimeDiff(self, events):
         TimeDiff = events.groupby(['x', 'y'])['t'].diff().to_frame()
         TimeDiff['x'] = events['x']
@@ -286,18 +286,18 @@ class MinTimeDiff(XYDist):
         minTimeDiff = TimeDiff.groupby(['x', 'y'])['t'].agg(['min', 'size']).reset_index()
         minTimeDiff = minTimeDiff.rename(columns = {'min': 't', 'size': 'weight'})
         return minTimeDiff
-    
+
     def __call__(self, events):
         minTimeDiff = self.get_minTimeDiff(events)
         return super().measure(minTimeDiff)
-    
+
 class MaxTimeDiff(XYDist):
     display_name = "Maximum time delay/pixel"
     description = "The maximum time difference between events for each pixel."
     def __init__(self, events):
         super().__init__(events)
         self.dist2D = self(events)
-    
+
     def get_maxTimeDiff(self, events):
         TimeDiff = events.groupby(['x', 'y'])['t'].diff().to_frame()
         TimeDiff['x'] = events['x']
@@ -305,11 +305,11 @@ class MaxTimeDiff(XYDist):
         maxTimeDiff = TimeDiff.groupby(['x', 'y'])['t'].agg(['max', 'size']).reset_index()
         maxTimeDiff = maxTimeDiff.rename(columns = {'max': 't', 'size': 'weight'})
         return maxTimeDiff
-    
+
     def __call__(self, events):
         maxTimeDiff = self.get_maxTimeDiff(events)
         return super().measure(maxTimeDiff)
-    
+
 class Hist3d_xyt(XYTDist):
     def __init__(self, events, t_bin_width = 10., xy_bin_width = 1., **kwargs):
         super().__init__(events)
@@ -324,8 +324,8 @@ class Hist3d_xyt(XYTDist):
         yrange = [self.ylim[0]-0.5, self.ylim[1]+0.5]
         trange = self.tlim
         return [xrange, yrange, trange]
-    
-    def bins(self): 
+
+    def bins(self):
         xbins = int((self.xlim[1]-self.xlim[0]+1)/self.xy_bin_width)
         ybins = int((self.ylim[1]-self.ylim[0]+1)/self.xy_bin_width)
         tbins = int(np.ceil((self.tlim[1]-self.tlim[0])/self.t_bin_width))

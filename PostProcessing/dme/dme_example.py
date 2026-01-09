@@ -18,23 +18,23 @@ use_cuda=True
 def smlm_simulation(
         drift_trace,
         fov_width, # field of view size in pixels
-        loc_error, # localization error XYZ 
+        loc_error, # localization error XYZ
         n_sites, # number of locations where molecules blink on and off
         n_frames,
         on_prob = 0.1, # probability of a binding site generating a localization in a frame
-        ): 
-    
+        ):
+
     """
     localization error is set to 20nm XY and 50nm Z precision 
     (assumping Z coordinates are in um and XY are in pixels)
     """
 
-    # typical 2D acquisition with small Z range and large XY range        
+    # typical 2D acquisition with small Z range and large XY range
     binding_sites = np.random.uniform([0,0,-1], [fov_width,fov_width,1], size=(n_sites,3))
-    
+
     localizations = []
     framenum = []
-    
+
     for i in range(n_frames):
         on = np.random.binomial(1, on_prob, size=n_sites).astype(np.bool)
         locs = binding_sites[on]*1
@@ -42,7 +42,7 @@ def smlm_simulation(
         locs += drift_trace[i] + np.random.normal(0, loc_error, size=locs.shape)
         framenum.append(np.ones(len(locs),dtype=np.int32)*i)
         localizations.append(locs)
-        
+
     return np.concatenate(localizations), np.concatenate(framenum)
 
 n_frames = 2000
@@ -55,18 +55,18 @@ drift_trace = np.cumsum(np.random.normal(drift_mean, drift_stdev, size=(n_frames
 drift_trace -= drift_trace.mean(0)
 
 
-localizations, framenum = smlm_simulation(drift_trace, fov_width, loc_error, 
+localizations, framenum = smlm_simulation(drift_trace, fov_width, loc_error,
                                           n_sites=200,
                                           n_frames=n_frames)
 print(f"Total localizations: {len(localizations)}")
 
 crlb = np.ones(localizations.shape) * np.array(loc_error)[None]
-    
 
-estimated_drift,_ = dme_estimate(localizations, framenum, 
-             crlb, 
+
+estimated_drift,_ = dme_estimate(localizations, framenum,
+             crlb,
              framesperbin = 1,  # note that small frames per bin use many more iterations
-             imgshape=[fov_width, fov_width], 
+             imgshape=[fov_width, fov_width],
              coarseFramesPerBin=200,
              coarseSigma=[0.2,0.2,0.2],  # run a coarse drift correction with large Z sigma
              useCuda=use_cuda,

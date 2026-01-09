@@ -9,7 +9,7 @@ def load_additional_modules(dirname, all_modules):
         #Check if they should be appended, and if so, append them to all
         if f != "__init__.py" and os.path.isfile(os.path.join(dirname, f)) and f.endswith(".py"):
             __all__.append(f[:-3])
-        
+
     #Loop over all and add them as import
     for module_name in all_modules:
         try:

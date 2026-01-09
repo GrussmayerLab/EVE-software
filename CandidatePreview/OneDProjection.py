@@ -61,10 +61,10 @@ def OneDProjection(findingResult, fittingResult, previewEvents, figure, settings
     if t_bin_width is not None:
         hist_t = eventDistributions.Hist1d_t(findingResult, t_bin_width=t_bin_width)
         hist_t_dist, hist_t_edges = hist_t.dist1D, hist_t.t_edges
-    else: 
+    else:
         hist_t_dist, hist_t_edges = np.histogram(findingResult['t'].values*1e-3, bins=bins)
         t_bin_width = hist_t_edges[1]-hist_t_edges[0]
-    
+
     t_min = None
     text = ''
 
@@ -89,30 +89,30 @@ def OneDProjection(findingResult, fittingResult, previewEvents, figure, settings
             first_events = firstTimes.get_smallest_t(findingResult)
             first_events = first_events.sort_values(by='t')
             hist_t_first, t_edges = np.histogram(first_events['t'].values*1e-3, bins=hist_t_edges)
-            
+
             # Add a zero bin to the beginning and end of hist_t_first for plot with step function
             hist_t_first = np.insert(hist_t_first, 0, 0)  # Add a zero bin at the beginning
             hist_t_first = np.append(hist_t_first, 0)  # Add a zero bin at the end
             t_edges = np.insert(t_edges, 0, t_edges[0]-(t_edges[1]-t_edges[0]))  # Add a zero bin at the beginning
             t_edges = np.append(t_edges, t_edges[-1]+(t_edges[1]-t_edges[0]))  # Add a zero bin at the end
 
-            bincentres = (t_edges[1:]-t_edges[:-1])/2.+t_edges[:-1] 
+            bincentres = (t_edges[1:]-t_edges[:-1])/2.+t_edges[:-1]
             ax.step(bincentres,hist_t_first,where='mid',color='C2', label='Histogram (first)',linewidth=1.5)
-            
+
         else:
             # get first events
             firstTimes = eventDistributions.FirstTimestamp(findingResult)
             first_events = firstTimes.get_smallest_t(findingResult)
             first_events = first_events.sort_values(by='t')
             hist_t_first, t_edges = np.histogram(first_events['t']*1e-3, bins=hist_t_edges, weights=first_events['weight'])
-            
+
             # Add a zero bin to the beginning and end of hist_t_first for plot with step function
             hist_t_first = np.insert(hist_t_first, 0, 0)  # Add a zero bin at the beginning
             hist_t_first = np.append(hist_t_first, 0)  # Add a zero bin at the end
             t_edges = np.insert(t_edges, 0, t_edges[0]-(t_edges[1]-t_edges[0]))  # Add a zero bin at the beginning
             t_edges = np.append(t_edges, t_edges[-1]+(t_edges[1]-t_edges[0]))  # Add a zero bin at the end
 
-            bincentres = (t_edges[1:]-t_edges[:-1])/2.+t_edges[:-1] 
+            bincentres = (t_edges[1:]-t_edges[:-1])/2.+t_edges[:-1]
             ax.step(bincentres,hist_t_first,where='mid',color='C2', label='Histogram (first, weighted)',linewidth=1.5)
 
     for index, row in fittingResult.iloc[:-1].iterrows():
@@ -132,11 +132,11 @@ def OneDProjection(findingResult, fittingResult, previewEvents, figure, settings
         ax.set_xlim(np.nanmin([hist_t_edges[0], t_min-2]), hist_t_edges[-1])
     else:
         ax.set_xlim(hist_t_edges[0], hist_t_edges[-1])
-   
+
     ax.set_xlabel('t [ms]')
     ax.set_ylabel('number of events')
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     figure.tight_layout()
-    
+
     # required output none
     return 1

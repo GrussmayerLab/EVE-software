@@ -9,7 +9,8 @@ except ImportError:
     from TemporalFitting import timeFitting
 import pandas as pd
 import numpy as np
-import time, logging
+import time
+import logging
 from scipy import optimize
 import warnings
 from scipy.optimize import OptimizeWarning
@@ -33,7 +34,7 @@ def __function_metadata__():
             ],
             "help_string": "Makes a 2D gaussian fit (via least squares) to determine the localization parameters.",
             "display_name": "2D Gaussian"
-        }, 
+        },
         "LogGaussian2D": {
             "dist_kwarg" : {"base": "XYDist", "description": "Two-dimensional event-distribution to fit to get x,y-localization.", "default_option": "Hist2d_xy"},
             "time_kwarg" : {"base": "TemporalFits", "description": "Temporal fitting routine to get time estimate.", "default_option": "LognormCDFFirstEvents_weighted"},
@@ -45,7 +46,7 @@ def __function_metadata__():
             ],
             "help_string": "Makes a 2D log-gaussian fit (via least squares) to determine the localization parameters.",
             "display_name": "2D Logarithmic Gaussian"
-        }, 
+        },
         "Gaussian3D": {
             "dist_kwarg" : {"base": "XYDist", "description": "Two-dimensional event-distribution to fit to get x,y-localization.", "default_option": "Hist2d_xy"},
             "time_kwarg" : {"base": "TemporalFits", "description": "Temporal fitting routine to get time estimate.", "default_option": "LognormCDFFirstEvents_weighted"},
@@ -59,7 +60,7 @@ def __function_metadata__():
             ],
             "help_string": "Makes a 2D gaussian fit with rotation angle theta to determine the 3D localization parameters.",
             "display_name": "3D Gaussian: Astigmatism"
-        }, 
+        },
         "LogGaussian3D": {
             "dist_kwarg" : {"base": "XYDist", "description": "Two-dimensional event-distribution to fit to get x,y-localization.", "default_option": "Hist2d_xy"},
             "time_kwarg" : {"base": "TemporalFits", "description": "Temporal fitting routine to get time estimate.", "default_option": "LognormCDFFirstEvents_weighted"},
@@ -108,13 +109,13 @@ class fit:
                 self.sigma = weights[mask]
         self.mesh = self.meshgrid()
         self.fit_info = ''
-    
+
     def meshgrid(self):
         x = np.arange(self.xlim)
         y = np.arange(self.ylim)
         X,Y = np.meshgrid(x,y)
         return X.ravel(),Y.ravel()
-    
+
     def __call__(self, func, **kwargs):
         try:
             if len(self.sigma) == 0:
@@ -150,16 +151,16 @@ class gauss2D(fit):
     def bounds(self):
         bounds = ([-0.5, -0.5, 0., 0., 0., 0.0], [self.xlim-0.5, self.ylim-0.5, np.inf, np.inf, np.inf, np.inf]) # allow borders of pixels
         return bounds
-    
+
     def p0(self, width):
         p0 = (self.xmean, self.ymean, width, width, self.imstats[0], self.imstats[1])
         return p0
-    
+
     def func(self, XY, x0, y0, sigma_x, sigma_y, amplitude, offset):
         X, Y = XY
         g = offset + amplitude * np.exp( - ((X-x0)**2/(2*sigma_x**2) + (Y-y0)**2/(2*sigma_y**2)))
         return g
-    
+
     def __call__(self, candidate, time_fit, **kwargs):
         opt, err = super().__call__(self.func, bounds=self.bounds, p0=self.p0, **kwargs)
         if self.fit_info != '':
@@ -173,7 +174,7 @@ class gauss2D(fit):
             sigma_y = np.nan
             del_sigma_x = np.nan
             del_sigma_y = np.nan
-        else: 
+        else:
             x = (opt[0]+np.min(candidate['events']['x']))*self.pixel_size # in nm
             y = (opt[1]+np.min(candidate['events']['y']))*self.pixel_size # in nm
             del_x = err[0]*self.pixel_size # in nm
@@ -209,19 +210,19 @@ class loggauss2D(gauss2D):
     def __init__(self, dist, candidateID, width, fitting_tolerance, pixel_size):
         super().__init__(dist, candidateID, width, fitting_tolerance, pixel_size)
         self.update_p0()
-    
+
     def update_p0(self):
         mod_p0 = list(self.p0)
         mod_p0[4] = (self.imstats[0]-self.imstats[1])/np.log(2) # np.exp(self.imstats[0])
         mod_p0[5] = self.imstats[1] # np.exp(self.imstats[1])
         self.p0 = tuple(mod_p0)
-    
+
     def func(self, XY, x0, y0, sigma_x, sigma_y, amplitude, offset):
         X, Y = XY
         g = offset + amplitude * np.log(1 + np.exp( - ((X-x0)**2/(2*sigma_x**2) + (Y-y0)**2/(2*sigma_y**2))))
         # g = np.log(offset + amplitude * np.exp( - ((X-x0)**2/(2*sigma_x**2) + (Y-y0)**2/(2*sigma_y**2))))
         return g
-    
+
 # 3d gaussian fit
 class gauss3D(gauss2D):
 
@@ -231,7 +232,7 @@ class gauss3D(gauss2D):
         self.calibration = calibration
 
     # 2D Gaussian with rotation (angle theta in [rad])
-    def func(self, XY, x0, y0, sigma_x, sigma_y, amplitude, offset):  
+    def func(self, XY, x0, y0, sigma_x, sigma_y, amplitude, offset):
         X, Y = XY
         x_hat = np.cos(self.theta)*(X-x0) - np.sin(self.theta)*(Y-y0)
         y_hat = np.sin(self.theta)*(X-x0) + np.cos(self.theta)*(Y-y0)
@@ -240,30 +241,30 @@ class gauss3D(gauss2D):
         # a = (np.cos(self.theta)**2)/(2*sigma_x**2) + (np.sin(self.theta)**2)/(2*sigma_y**2)
         # b = -(np.sin(2*self.theta))/(4*sigma_x**2) + (np.sin(2*self.theta))/(4*sigma_y**2)
         # c = (np.sin(self.theta)**2)/(2*sigma_x**2) + (np.cos(self.theta)**2)/(2*sigma_y**2)
-        # g = offset + amplitude * np.exp( - (a*((X-x0)**2) + 2*b*(X-x0)*(Y-y0) 
+        # g = offset + amplitude * np.exp( - (a*((X-x0)**2) + 2*b*(X-x0)*(Y-y0)
         #                         + c*((Y-y0)**2)))
         return g
-    
+
     def sigma_fit(self, z, a, b, c, d, e):
         sigma = a*(z-c)**2+d*(z-c)**3+b + e*(z-c)**4
         return sigma
-    
+
     def diff_sigma_fit(self, z, a1, b1, c1, d1, e1, a2, b2, c2, d2, e2):
         # diff_sigma = (a1*(z-c1)**2+d1*(z-c1)**3+b1 + e1*(z-c1)**4) - (a2*(z-c2)**2+d2*(z-c2)**3+b2 + e2*(z-c2)**4)
         diff_sigma = (a1*(z-c1)**2+d1*(z-c1)**3+b1 + e1*(z-c1)**4) / (a2*(z-c2)**2+d2*(z-c2)**3+b2 + e2*(z-c2)**4)
         return diff_sigma
-    
+
     def distance(self, z, widths):
         sigma_x, sigma_y = widths
         # ret = (sigma_x-self.sigma_fit(z, *self.calibration[['a1','b1','c1','d1','e1']].values[0]))**2 + (sigma_y-self.sigma_fit(z, *self.calibration[['a2','b2','c2','d2','e2']].values[0]))**2
-        
+
         # in ThunderSTORM they take sqrt(sigma)
         # ret = (np.sqrt(sigma_x)-np.sqrt(self.sigma_fit(z, *self.calibration[['a1','b1','c1','d1','e1']].values[0])))**2 + (np.sqrt(sigma_y)-np.sqrt(self.sigma_fit(z, *self.calibration[['a2','b2','c2','d2','e2']].values[0])))**2
-        
+
         # minimize distance of widths-ratios to fit
         ret = ((sigma_x/sigma_y)-(self.diff_sigma_fit(z, *self.calibration[['a1','b1','c1','d1','e1']].values[0], *self.calibration[['a2','b2','c2','d2','e2']].values[0])))**2
         return ret
-    
+
     def __call__(self, candidate, time_fit, **kwargs):
         opt, err = super(gauss2D, self).__call__(self.func, bounds=self.bounds, p0=self.p0, **kwargs)
         # loc_params = ['x', 'y', 'del_x', 'del_y', 't', 'del_t', 'sigma_x', 'sigma_y', 'del_sigma_x', 'del_sigma_y', 'z', 'del_z']
@@ -282,7 +283,7 @@ class gauss3D(gauss2D):
             del_sigma_y = np.nan
             z = np.nan
             del_z = np.nan
-        else: 
+        else:
             x = (opt[0]+np.min(candidate['events']['x']))*self.pixel_size # in nm
             y = (opt[1]+np.min(candidate['events']['y']))*self.pixel_size # in nm
             del_x = err[0]*self.pixel_size # in nm
@@ -340,22 +341,22 @@ class gauss3D(gauss2D):
         p = int(mean_polarity == 1) + int(mean_polarity == 0) * 0 + int(mean_polarity > 0 and mean_polarity < 1) * 2
         loc_df = pd.DataFrame({'candidate_id': self.candidateID, 'x': x, 'y': y, 'del_x': del_x, 'del_y': del_y, 'z': z, 'del_z': del_z, 'sigma_x': sigma_x, 'sigma_y': sigma_y, 'del_sigma_x' : del_sigma_x, 'del_sigma_y' : del_sigma_y, 'p': p, 't': t, 'del_t': del_t, 'N_events': candidate['N_events'], 'x_dim': candidate['cluster_size'][1], 'y_dim': candidate['cluster_size'][0], 't_dim': candidate['cluster_size'][2]*1e-3, 'fit_info': self.fit_info}, index=[0])
         return loc_df
-    
+
 # 3d gaussian fit
 class loggauss3D(gauss3D):
 
     def __init__(self, dist, candidateID, width, fitting_tolerance, pixel_size, theta, calibration):
         super().__init__(dist, candidateID, width, fitting_tolerance, pixel_size, theta, calibration)
         self.update_p0()
-    
+
     def update_p0(self):
         mod_p0 = list(self.p0)
         mod_p0[4] = (self.imstats[0]-self.imstats[1])/np.log(2) # np.exp(self.imstats[0])
         mod_p0[5] = self.imstats[1] # np.exp(self.imstats[1])
         self.p0 = tuple(mod_p0)
-    
+
      # 2D LogGaussian with rotation (angle theta in [rad])
-    def func(self, XY, x0, y0, sigma_x, sigma_y, amplitude, offset):  
+    def func(self, XY, x0, y0, sigma_x, sigma_y, amplitude, offset):
         X, Y = XY
         x_hat = np.cos(self.theta)*(X-x0) - np.sin(self.theta)*(Y-y0)
         y_hat = np.sin(self.theta)*(X-x0) + np.cos(self.theta)*(Y-y0)
@@ -410,7 +411,7 @@ def Gaussian2D(candidate_dic,settings,**kwargs):
 
     if multithread == True: num_cores = multiprocessing.cpu_count()
     else: num_cores = 1
-    
+
     # Determine number of jobs on CPU and slice data accordingly
     njobs, num_cores = utilsHelper.nb_jobs(candidate_dic, num_cores)
     data_split = utilsHelper.slice_data(candidate_dic, njobs)
@@ -419,13 +420,13 @@ def Gaussian2D(candidate_dic,settings,**kwargs):
 
     # Determine all localizations
     RES = Parallel(n_jobs=num_cores,backend="loky")(delayed(localize_canditates2D)(i, data_split[i], fit_func, dist_func, time_fit, *params) for i in range(len(data_split)))
-    
+
     localization_list = [res[0] for res in RES]
     localizations = pd.concat(localization_list, ignore_index=True)
 
     fail_list = [res[1] for res in RES]
     fails = pd.concat(fail_list, ignore_index=True)
-    
+
     # Fit performance information
     gaussian_fit_info = utilsHelper.info(localizations, fails)
 
@@ -453,7 +454,7 @@ def LogGaussian2D(candidate_dic,settings,**kwargs):
 
     if multithread == True: num_cores = multiprocessing.cpu_count()
     else: num_cores = 1
-    
+
     # Determine number of jobs on CPU and slice data accordingly
     njobs, num_cores = utilsHelper.nb_jobs(candidate_dic, num_cores)
     data_split = utilsHelper.slice_data(candidate_dic, njobs)
@@ -462,13 +463,13 @@ def LogGaussian2D(candidate_dic,settings,**kwargs):
 
     # Determine all localizations
     RES = Parallel(n_jobs=num_cores,backend="loky")(delayed(localize_canditates2D)(i, data_split[i], fit_func, dist_func, time_fit, *params) for i in range(len(data_split)))
-    
+
     localization_list = [res[0] for res in RES]
     localizations = pd.concat(localization_list)
 
     fail_list = [res[1] for res in RES]
     fails = pd.concat(fail_list)
-    
+
     # Fit performance information
     gaussian_fit_info = utilsHelper.info(localizations, fails)
 
@@ -508,7 +509,7 @@ def Gaussian3D(candidate_dic,settings,**kwargs):
 
     if multithread == True: num_cores = multiprocessing.cpu_count()
     else: num_cores = 1
-    
+
     # Determine number of jobs on CPU and slice data accordingly
     njobs, num_cores = utilsHelper.nb_jobs(candidate_dic, num_cores)
     data_split = utilsHelper.slice_data(candidate_dic, njobs)
@@ -517,13 +518,13 @@ def Gaussian3D(candidate_dic,settings,**kwargs):
 
     # Determine all localizations
     RES = Parallel(n_jobs=num_cores,backend="loky")(delayed(localize_canditates2D)(i, data_split[i], fit_func, dist_func, time_fit, *params) for i in range(len(data_split)))
-    
+
     localization_list = [res[0] for res in RES]
     localizations = pd.concat(localization_list)
 
     fail_list = [res[1] for res in RES]
     fails = pd.concat(fail_list)
-    
+
     # Fit performance information
     gaussian_fit_info = performance_metadata + utilsHelper.info(localizations, fails)
 
@@ -564,7 +565,7 @@ def LogGaussian3D(candidate_dic,settings,**kwargs):
 
     if multithread == True: num_cores = multiprocessing.cpu_count()
     else: num_cores = 1
-    
+
     # Determine number of jobs on CPU and slice data accordingly
     njobs, num_cores = utilsHelper.nb_jobs(candidate_dic, num_cores)
     data_split = utilsHelper.slice_data(candidate_dic, njobs)
@@ -573,13 +574,13 @@ def LogGaussian3D(candidate_dic,settings,**kwargs):
 
     # Determine all localizations
     RES = Parallel(n_jobs=num_cores,backend="loky")(delayed(localize_canditates2D)(i, data_split[i], fit_func, dist_func, time_fit, *params) for i in range(len(data_split)))
-    
+
     localization_list = [res[0] for res in RES]
     localizations = pd.concat(localization_list)
 
     fail_list = [res[1] for res in RES]
     fails = pd.concat(fail_list)
-    
+
     # Fit performance information
     gaussian_fit_info = performance_metadata + utilsHelper.info(localizations, fails)
 

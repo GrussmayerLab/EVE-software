@@ -131,6 +131,6 @@ def TwoDProjection(findingResult, fittingResult, previewEvents, figure, settings
     ax_xt.set_ylabel('x [px]')
     ax_yt.set_ylabel('y [px]')
     ax_yt.set_xlabel('t [ms]')
-    
+
     # required output none
     return 1

@@ -7,7 +7,8 @@ from sklearn.cluster import DBSCAN
 import scipy.ndimage
 from scipy import spatial
 import numpy as np
-import time, logging
+import time
+import logging
 import pandas as pd
 import inspect
 
@@ -51,8 +52,8 @@ class Frame():
         xrange = [self.xlim[0]-0.5, self.xlim[1]+0.5]
         yrange = [self.ylim[0]-0.5, self.ylim[1]+0.5]
         return [xrange, yrange]
-    
-    def bins(self): 
+
+    def bins(self):
         xbins = int((self.xlim[1]-self.xlim[0]+1)/self.xy_bin_width)
         ybins = int((self.ylim[1]-self.ylim[0]+1)/self.xy_bin_width)
         return (xbins, ybins)
@@ -62,7 +63,7 @@ class Frame():
         sub_events=events[msk]
         frame, x_edges, y_edges = np.histogram2d(sub_events['x'], sub_events['y'], bins = self.bins, range = self.range, **kwargs)
         return frame.T
-    
+
 # wavelet detection
 def wavelet_detection(frame, kernel1, kernel2, kernel, threshold_detection):
     """
@@ -83,25 +84,25 @@ def detect_PSFs(frame, x0, y0, min_diameter, max_diameter, exclusion_radius, can
     """
     # Generate image to label
     image_to_label=wavelet_detection(frame, kernel1, kernel2, kernel, threshold_detection)
-    
+
     # Create labels
     labels,nb_labels=scipy.ndimage.label(image_to_label)
     label_list=np.arange(nb_labels)+1
     area_sizes=scipy.ndimage.sum((image_to_label>0),labels,index=label_list)
-    
+
     # Filter labels by size
     msk=(area_sizes>(min_diameter*2+1)**2)*(area_sizes<(max_diameter*2+1)**2)
     label_list=label_list[msk]
     labels*=np.isin(labels,label_list)
     nb_labels=len(label_list)
-    
+
     # Calculate center of mass
     coordinates_COM=scipy.ndimage.center_of_mass(image_to_label,labels,label_list)
     coordinates_COM=np.asarray(coordinates_COM)
     if len(np.shape(coordinates_COM))==1:
         if np.shape(coordinates_COM)[0]==0:
             coordinates_COM=np.zeros((0,2))
-    
+
     # Filter coordinates by distance to each other
     msk=np.ones(nb_labels,dtype=bool)
     mgy1,mgy2=np.meshgrid(coordinates_COM[:,0],coordinates_COM[:,0].transpose())
@@ -116,7 +117,7 @@ def detect_PSFs(frame, x0, y0, min_diameter, max_diameter, exclusion_radius, can
     labels*=np.isin(labels,label_list)
     nb_labels=len(label_list)
     coordinates_COM=coordinates_COM[msk]
-    
+
     # Filter coordinates by distance to the frame edges
     if nb_labels>0:
         msk=(coordinates_COM[:,0]>candidate_radius*2)*(coordinates_COM[:,1]>candidate_radius*2)*(coordinates_COM[:,0]<np.shape(frame)[0]-candidate_radius*2)*(coordinates_COM[:,1]<np.shape(frame)[1]-candidate_radius*2)
@@ -124,20 +125,20 @@ def detect_PSFs(frame, x0, y0, min_diameter, max_diameter, exclusion_radius, can
         labels*=np.isin(labels,label_list)
         nb_labels=len(label_list)
         coordinates_COM=coordinates_COM[msk]
-        
+
     if len(np.shape(coordinates_COM))==1:
         coordinates_COM=np.zeros((0,2))
-        
+
     x=coordinates_COM[:,1]
     y=coordinates_COM[:,0]
     ROIs=np.zeros((np.shape(x)[0],3))
     ROIs[:,0]=y+y0
     ROIs[:,1]=x+x0
-    
+
     return ROIs
 
 # Process frame (get all ROIs in frame)
-def process_frame(frame, x0, y0, times, min_diameter, max_diameter, exclusion_radius, candidate_radius, kernel1, kernel2, kernel, threshold_detection):    
+def process_frame(frame, x0, y0, times, min_diameter, max_diameter, exclusion_radius, candidate_radius, kernel1, kernel2, kernel, threshold_detection):
     """
     Process a single frame
     """
@@ -212,7 +213,7 @@ def compute_thread(i, sub_events, frame_time, candidate_radius, min_diameter, ma
         ROIs.append(process_frame(frame, x0, y0, times, min_diameter, max_diameter, exclusion_radius, candidate_radius, kernel1, kernel2, kernel, threshold_detection))
     ROIs=np.vstack(ROIs)
     gc.collect()
-    
+
     candidates = {}
     dict_index = 0
     # Generating candidate dictionary
@@ -259,7 +260,7 @@ def FrameBased_finding(npy_array,settings,**kwargs):
     kernel2=np.array([0.0625,0,0.375,0,0.25,0,0.0625])
     kernel_size=8
     kernel=np.ones((kernel_size,kernel_size))/(kernel_size**2.)
-    
+
     # Find all candidates
     candidates = {}
     index = 0
@@ -273,7 +274,7 @@ def FrameBased_finding(npy_array,settings,**kwargs):
         for candidate in RES[i].items():
             candidates[index] = candidate[1]
             index+=1
-    
+
     #Remove small/large bounding-box data
     candidates, _, _ = utilsHelper.removeCandidatesWithLargeSmallBoundingBox(candidates,settings)
 

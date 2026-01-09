@@ -35,17 +35,17 @@ def DriftCorr_AIM(resultArray,findingResult,settings,**kwargs):
 
     #Import the correct package
     from .aim import aim
-    
+
     pxSize = float(settings['PixelSize_nm']['value'])
-    
+
     time_prec_us = 1
-    
+
     #Set user variables
     nr_bins = int(kwargs['number_bins'])
     visualisation=utilsHelper.strtobool(kwargs['visualisation'])
-    
+
     resultArray=resultArray.dropna()
-    
+
     # timevals should start at 1, and be integers
     timevals = np.floor((resultArray['t'].values + 1 - np.min(resultArray['t'].values)) / time_prec_us).astype(int)
 
@@ -61,21 +61,21 @@ def DriftCorr_AIM(resultArray,findingResult,settings,**kwargs):
     ref_y = resultArray['y'].values[timevals <= segmentation]/pxSize
 
     intersect_d = 4 #intersect distance in cam pixels
-    roi_r = 1 #Radius of the local search region in camera pixels. Should be 
+    roi_r = 1 #Radius of the local search region in camera pixels. Should be
         #larger than the  maximum expected drift within segmentation.
     im_width = (np.max(resultArray['x'].values)-np.min(resultArray['x'].values))/pxSize
-    
+
     ### RUN AIM TWICE ###
     # the first run is with the first interval as reference
     x_pdc, y_pdc, drift_x1, drift_y1 = aim.intersection_max(
         resultArray['x']/pxSize, resultArray['y']/pxSize, ref_x, ref_y,
-        timevals, seg_bounds, intersect_d, roi_r, im_width, 
+        timevals, seg_bounds, intersect_d, roi_r, im_width,
         aim_round=1, progress=None,
     )
     # # the second run is with the entire dataset as reference
     x_pdc, y_pdc, drift_x2, drift_y2 = aim.intersection_max(
         resultArray['x']/pxSize, resultArray['y']/pxSize, x_pdc, y_pdc,
-        timevals, seg_bounds, intersect_d, roi_r, im_width, 
+        timevals, seg_bounds, intersect_d, roi_r, im_width,
         aim_round=1, progress=None,
     )
 
@@ -90,7 +90,7 @@ def DriftCorr_AIM(resultArray,findingResult,settings,**kwargs):
     drift_y -= shift_y
     x_pdc += shift_x
     y_pdc += shift_y
-    
+
     import copy
     #Correct the resultarray for the drift
     drift_corr_locs = copy.deepcopy(resultArray)
@@ -106,8 +106,8 @@ def DriftCorr_AIM(resultArray,findingResult,settings,**kwargs):
         plt.ylabel("Drift (px)")
         plt.legend()  # Added legend
         plt.show()
-    
-    
+
+
     performance_metadata = f"Driftcorrection AIM applied with settings {kwargs}."
-    
+
     return drift_corr_locs, performance_metadata

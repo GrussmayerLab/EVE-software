@@ -3,7 +3,7 @@ import warnings
 import inspect
 import importlib
 import re
-import warnings, logging
+import logging
 import numpy as np
 import itertools
 import time
@@ -67,7 +67,7 @@ def subfunction_exists(module_name, subfunction_name):
         return hasattr(module, subfunction_name) and callable(getattr(module, subfunction_name))
     except (ImportError, AttributeError):
         return False
-    
+
 # Return all functions that are found in a specific directory
 def functionNamesFromDir(dirname):
     """ 
@@ -105,11 +105,11 @@ def functionNamesFromDir(dirname):
                         #Give the user the warning and the solution
                         warnings.warn(f"Warning: {str(functionName)} does not have the required __function_metadata__ ! All functions that are found in this module are added! They are {subroutines}")
         return functionnamearr
-    
+
     #Get the absolute path, assuming that this file will stay in the sister-folder
     absolute_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),dirname)
     functionnamearr = addFilesToAbsolutePath(functionnamearr,absolute_path)
-    
+
     #Also do this on the app-data folder
     #Try-except clause just if the folder isn't in appdata it shouldn't be an issue
     try:
@@ -117,7 +117,7 @@ def functionNamesFromDir(dirname):
         functionnamearr = addFilesToAbsolutePath(functionnamearr,additional_folder_name)
     except:
         pass
-    
+
     #return all functions
     return functionnamearr
 
@@ -138,10 +138,10 @@ def displayNameFromKwarg(functionname,name):
     displayName = name
     #Look through optional args first, then req. kwargs (so that req. kwargs have priority in case something weirdi s happening):
     for optOrReq in range(1,-1,-1):
-    
+
         #Perform a regex match on 'name'
         name_pattern = r"name:\s*(\S+)"
-        
+
         names = re.findall(name_pattern, allkwarginfo[optOrReq][0])
         instances = re.split(r'(?=name: )', allkwarginfo[optOrReq][0])[1:]
 
@@ -150,7 +150,7 @@ def displayNameFromKwarg(functionname,name):
         for i,namef in enumerate(names):
             if namef == name:
                 name_id = i
-        
+
         if name_id > -1:
             curr_instance = instances[name_id]
             displayText_pattern = r"display_text: (.*?)\n"
@@ -159,9 +159,9 @@ def displayNameFromKwarg(functionname,name):
                 displayName = displaytext[0]
             else:
                 displayName = name
-    
+
     return displayName
-    
+
 
 #Returns the 'names' of the optional kwargs of a function
 def optKwargsFromFunction(functionname):
@@ -215,13 +215,13 @@ def classKwargValuesFromFittingFunction(functionname, class_type):
                         derivedClasses_description.append(obj.description)
                     except:
                         derivedClasses_description.append("")
-                    
+
     name_to_displayName_map = dict(zip(derivedClasses, derivedClasses_display_name))
-    
+
     return [derivedClasses, derivedClasses_display_name, name_to_displayName_map, derivedClasses_description]
 
 def defaultOptionFromClassKwarg(functionname, classtype):
-    #Check if the function has a 'default' option for the distribution kwarg. 
+    #Check if the function has a 'default' option for the distribution kwarg.
     defaultOption=None
     functionparent = functionname.split('.')[0]
     #Get the full function metadata
@@ -266,7 +266,7 @@ def getInfoFromClass(class_name, class_type):
 def helpStringFromFunction(functionname):
     try:
         #Check if parent function
-        if not '.' in functionname:
+        if '.' not in functionname:
             functionMetadata = eval(f'{str(functionname)}.__function_metadata__()')
             return functionMetadata['help_string']
         else: #or specific sub-function
@@ -281,7 +281,7 @@ def helpStringFromFunction(functionname):
 def kwargsFromFunction(functionname):
     try:
         #Check if parent function
-        if not '.' in functionname:
+        if '.' not in functionname:
             functionMetadata = eval(f'{str(functionname)}.__function_metadata__()')
             #Loop over all entries
             looprange = range(0,len(functionMetadata))
@@ -339,7 +339,7 @@ def kwargsFromFunction(functionname):
         dist_kwarg = []
         time_kwarg = []
         return f"No __function_metadata__ in {functionname}"
-            
+
     return [rkwarr_arr, okwarr_arr, dist_kwarg, time_kwarg]
 
 #Obtain the help-file and info on kwargs on a specific function
@@ -351,7 +351,7 @@ def infoFromMetadata(functionname,**kwargs):
     try:
         skipfinalline = False
         #Check if parent function
-        if not '.' in functionname:
+        if '.' not in functionname:
             functionMetadata = eval(f'{str(functionname)}.__function_metadata__()')
             finaltext = f"""\
             --------------------------------------------------------------------------------------
@@ -376,7 +376,7 @@ def infoFromMetadata(functionname,**kwargs):
                 #Get the full function metadata
                 functionMetadata = eval(f'{str(functionparent)}.__function_metadata__()')
                 #Get the help string of a single kwarg
-                
+
                 #Find the help text of a single kwarg
                 helptext = 'No help text set'
                 #Look over optional kwargs
@@ -422,7 +422,7 @@ def infoFromMetadata(functionname,**kwargs):
                 for key, value in functionMetadata[list(functionMetadata.keys())[i]]["optional_kwargs"][k].items():
                     txt += f"{key}: {value}\n"
             okwarr_arr.append(txt)
-        
+
             #Fuse all the texts together
             if showHelp or showKwargs:
                 finaltext += f"""
@@ -441,7 +441,7 @@ def infoFromMetadata(functionname,**kwargs):
                 {okwarr_arr[loopindex]}"""
             finaltext += "\n"
             loopindex+=1
-        
+
         if not skipfinalline:
             finaltext += "--------------------------------------------------------------------------------------\n"
         #Remove left-leading spaces
@@ -500,10 +500,10 @@ def changeTab(parent,text="Processing"):
             break
     import time
     time.sleep(0.1)
-        
+
 def defaultValueFromKwarg(functionname,kwargname):
     #Check if the function has a 'default' entry for the specific kwarg. If not, return None. Otherwise, return the default value.
-    
+
     defaultEntry=None
     functionparent = functionname.split('.')[0]
     #Get the full function metadata
@@ -519,7 +519,7 @@ def defaultValueFromKwarg(functionname,kwargname):
             #check if this has a default value:
             if 'default' in functionMetadata[functionname.split('.')[1]]["required_kwargs"][k]:
                 defaultEntry = functionMetadata[functionname.split('.')[1]]["required_kwargs"][k]['default']
-    
+
     return defaultEntry
 
 
@@ -544,11 +544,11 @@ def displayNamesFromFunctionNames(functionName, polval=''):
                 displayName += " ("+polval+")"
         displaynames.append(displayName)
         functionName_to_displayName_map.append((displayName,function))
-        
+
     #Check for ambiguity in both columns:
     # if not len(np.unique(list(set(functionName_to_displayName_map)))) == len(list(itertools.chain.from_iterable(functionName_to_displayName_map))):
     #     raise Exception('Ambiguous display names in functions!! Please check all function names and display names for uniqueness!')
-        
+
     return displaynames, functionName_to_displayName_map
 
 def polaritySelectedFromDisplayName(displayname):
@@ -569,7 +569,7 @@ def functionNameFromDisplayName(displayname,map,typev='Normal'):
         for name in map:
             if map[name] == displayname:
                 return name
-        
+
 def typeFromKwarg(functionname,kwargname):
     #Check if the function has a 'type' entry for the specific kwarg. If not, return None. Otherwise, return the type value.
     typing=None
@@ -587,7 +587,7 @@ def typeFromKwarg(functionname,kwargname):
             #check if this has a default value:
             if 'type' in functionMetadata[functionname.split('.')[1]]["required_kwargs"][k]:
                 typing = functionMetadata[functionname.split('.')[1]]["required_kwargs"][k]['type']
-    
+
     return typing
 
 
@@ -605,10 +605,10 @@ def changeLayout_choice(curr_layout,className,displayNameToFunctionNameMap,paren
         logging.debug('current selected function: '+current_selected_function)
         if not ignorePolarity:
             current_selected_polarity = polaritySelectedFromDisplayName(curr_dropdown.currentText())
-            
+
             #Classname should always end in pos/neg/mix!
             wantedPolarity = className[-3:].lower()
-            
+
             #Hide dropdown entries that are not part of the current_selected property
             model = curr_dropdown.model()
             totalNrRows = model.rowCount()
@@ -617,7 +617,7 @@ def changeLayout_choice(curr_layout,className,displayNameToFunctionNameMap,paren
                 curr_dropdown.view().setRowHidden(rowId, False)
                 item = model.item(rowId)
                 item.setFlags(item.flags() | Qt.ItemIsEnabled)
-                
+
                 #Then hide based on the row name
                 rowName = model.item(rowId,0).text()
                 if polaritySelectedFromDisplayName(rowName) != wantedPolarity:
@@ -634,7 +634,7 @@ def changeLayout_choice(curr_layout,className,displayNameToFunctionNameMap,paren
                 item = model.item(rowId)
                 item.setFlags(item.flags() | Qt.ItemIsEnabled)
             current_selected_polarity = 'None'
-    
+
         #Visual max number of rows before a 2nd column is started.
         labelposoffset = 0
 
@@ -653,7 +653,7 @@ def changeLayout_choice(curr_layout,className,displayNameToFunctionNameMap,paren
             combobox = QComboBox()
             combobox.addItems(timeFit_displayNames)
             combobox.setObjectName(f"ComboBox#{current_selected_function}#time_kwarg#{current_selected_polarity}")
-            
+
             defaultOption = defaultOptionFromClassKwarg(current_selected_function, 'time')
             if defaultOption != None:
                 defaultOption_displayName = timeFit_name_to_displayName_map[defaultOption]
@@ -679,7 +679,7 @@ def changeLayout_choice(curr_layout,className,displayNameToFunctionNameMap,paren
             combobox = QComboBox()
             combobox.addItems(distKwarg_displayNames)
             combobox.setObjectName(f"ComboBox#{current_selected_function}#dist_kwarg#{current_selected_polarity}")
-            
+
             defaultOption = defaultOptionFromClassKwarg(current_selected_function, 'dist')
             if defaultOption != None:
                 defaultOption_displayName = distKwarg_name_to_displayName_map[defaultOption]
@@ -690,11 +690,11 @@ def changeLayout_choice(curr_layout,className,displayNameToFunctionNameMap,paren
             if checkAndShowWidget(curr_layout,combobox.objectName()) == False:
                 curr_layout.addWidget(combobox,labelposoffset+2,1)
             labelposoffset += 1
-            
+
         reqKwargs = reqKwargsFromFunction(current_selected_function)
-        
+
         #Add a widget-pair for every kw-arg
-        
+
         for k in range(len(reqKwargs)):
             #Value is used for scoring, and takes the output of the method
             if reqKwargs[k] != 'methodValue':
@@ -717,7 +717,7 @@ def changeLayout_choice(curr_layout,className,displayNameToFunctionNameMap,paren
                     line_edit_lookup.setText('...')
                     line_edit_lookup.setObjectName(f"PushButton#{current_selected_function}#{reqKwargs[k]}#{current_selected_polarity}")
                     hor_boxLayout.addWidget(line_edit_lookup)
-                    
+
                     #Actually placing it in the layout
                     checkAndShowWidget(curr_layout,line_edit.objectName())
                     checkAndShowWidget(curr_layout,line_edit_lookup.objectName())
@@ -728,7 +728,7 @@ def changeLayout_choice(curr_layout,className,displayNameToFunctionNameMap,paren
                         curr_layout.addLayout(hor_boxLayout,2+((k+labelposoffset))%maxNrRows,(((k+labelposoffset))//maxNrRows)*2+1)
                         #Add a on-change listener:
                         line_edit.textChanged.connect(lambda text,line_edit=line_edit: kwargValueInputChanged(line_edit))
-                        
+
                         if typeFromKwarg(current_selected_function,reqKwargs[k]) == 'fileLocSave':
                             #Add an listener when the pushButton is pressed
                             line_edit_lookup.clicked.connect(lambda text2,line_edit_change_objName = line_edit,text="Select file",filter="*.*": lineEditFileSaveLookup(line_edit_change_objName, text, filter,parent=parent))
@@ -745,27 +745,27 @@ def changeLayout_choice(curr_layout,className,displayNameToFunctionNameMap,paren
                                 dropDownOptions = ['Error in setting dropdown values (locListHeaders)']
                     else:
                         dropDownOptions = centerText.split(',')
-                    
-                    
+
+
                     #Delete old dropdown:
                     removeWidget(curr_layout,f"ComboBox#{current_selected_function}#{reqKwargs[k]}#{current_selected_polarity}")
                     #allow the layout to actually process a deletelater event:
                     QApplication.processEvents()
-                    
+
                     #We want to add a dropdown!
                     #Create a new qhboxlayout:
                     hor_boxLayout = QHBoxLayout()
                     #Add a line_edit to this:
                     dropDown = QComboBox()
                     dropDown.setObjectName(f"ComboBox#{current_selected_function}#{reqKwargs[k]}#{current_selected_polarity}")
-                    
-                    
+
+
                     #Add the options to the dropdown:
                     for option in dropDownOptions:
                         dropDown.addItem(option)
                     defaultValue = defaultValueFromKwarg(current_selected_function,reqKwargs[k])
                     hor_boxLayout.addWidget(dropDown)
-                    
+
                     #Actually placing it in the layout - this is different than other methods, in that it will be removed + re-added if it already exists.
                     checkAndShowWidget(curr_layout,dropDown.objectName())
                     if checkAndShowWidget(curr_layout,dropDown.objectName()) == False:
@@ -775,7 +775,7 @@ def changeLayout_choice(curr_layout,className,displayNameToFunctionNameMap,paren
                             if index >= 0:
                                 dropDown.setCurrentIndex(index)
                         curr_layout.addLayout(hor_boxLayout,2+((k+labelposoffset))%maxNrRows,(((k+labelposoffset))//maxNrRows)*2+1)
-                        
+
                 else: #'normal' type - int, float, string, whatever
                     #Creating a line-edit...
                     line_edit = QLineEdit()
@@ -791,7 +791,7 @@ def changeLayout_choice(curr_layout,className,displayNameToFunctionNameMap,paren
                         line_edit.textChanged.connect(lambda text,line_edit=line_edit: kwargValueInputChanged(line_edit))
             else:
                 labelposoffset -= 1
-            
+
         #Get the optional kw-arguments from the current dropdown.
         optKwargs = optKwargsFromFunction(current_selected_function)
         #Add a widget-pair for every kwarg
@@ -815,7 +815,7 @@ def changeLayout_choice(curr_layout,className,displayNameToFunctionNameMap,paren
                 line_edit_lookup.setText('...')
                 line_edit_lookup.setObjectName(f"PushButton#{current_selected_function}#{optKwargs[k]}#{current_selected_polarity}")
                 hor_boxLayout.addWidget(line_edit_lookup)
-                
+
                 #Actually placing it in the layout
                 checkAndShowWidget(curr_layout,line_edit.objectName())
                 checkAndShowWidget(curr_layout,line_edit_lookup.objectName())
@@ -826,14 +826,14 @@ def changeLayout_choice(curr_layout,className,displayNameToFunctionNameMap,paren
                     curr_layout.addLayout(hor_boxLayout,2+((k+labelposoffset+len(reqKwargs)))%maxNrRows,(((k+labelposoffset+len(reqKwargs)))//maxNrRows)*2+1)
                     #Add a on-change listener:
                     line_edit.textChanged.connect(lambda text,line_edit=line_edit: kwargValueInputChanged(line_edit))
-                    
+
                     if typeFromKwarg(current_selected_function,optKwargs[k]) == 'fileLocSave':
                         #Add an listener when the pushButton is pressed
                         line_edit_lookup.clicked.connect(lambda text2,line_edit_change_objName = line_edit,text="Select file",filter="*.*": lineEditFileSaveLookup(line_edit_change_objName, text, filter,parent=parent))
                     else:
                         #Add an listener when the pushButton is pressed
                         line_edit_lookup.clicked.connect(lambda text2,line_edit_change_objName = line_edit,text="Select file",filter="*.*": lineEditFileLookup(line_edit_change_objName, text, filter,parent=parent))
-                        
+
             else:
                 line_edit = QLineEdit()
                 line_edit.setObjectName(f"LineEdit#{current_selected_function}#{optKwargs[k]}#{current_selected_polarity}")
@@ -845,7 +845,7 @@ def changeLayout_choice(curr_layout,className,displayNameToFunctionNameMap,paren
                     curr_layout.addWidget(line_edit,2+((k+labelposoffset+len(reqKwargs)))%maxNrRows,(((k+labelposoffset+len(reqKwargs)))//maxNrRows)*2+1)
                     #Add a on-change listener:
                     line_edit.textChanged.connect(lambda text,line_edit=line_edit: kwargValueInputChanged(line_edit))
-    
+
     #Attempt a dropdown tooltip update:
     if hasattr(parent,className):
         if len(curr_dropdown) > 0:
@@ -855,13 +855,13 @@ def changeLayout_choice(curr_layout,className,displayNameToFunctionNameMap,paren
 def updateTimeFitTooltip(line_edit,parent):
     """
     Updates the tooltip of a line_edit of a time fit routine
-    """ 
+    """
     index = -1
     #Get the index of the current Text in the description list:
     for index, displayName in enumerate(parent.timeFit_name_to_displayName_map.values()):
         if displayName == line_edit.currentText():
             break
-    
+
     #Set the tooltip if found
     if index > -1:
         line_edit.setToolTip(parent.timeFit_descriptions[index])
@@ -984,7 +984,7 @@ def resetLayout(curr_layout,className):
         if widget_item.widget() is not None:
             widget = widget_item.widget()
             #If it's the dropdown segment, label it as such
-            if not ("CandidateFindingDropdown" in widget.objectName()) and not ("CandidateFittingDropdown" in widget.objectName()) and widget.objectName() != f"titleLabel_{className}" and not ("KEEP" in widget.objectName()):
+            if "CandidateFindingDropdown" not in widget.objectName() and "CandidateFittingDropdown" not in widget.objectName() and widget.objectName() != f"titleLabel_{className}" and "KEEP" not in widget.objectName():
                 logging.debug(f"Hiding {widget.objectName()}")
                 widget.hide()
         else:
@@ -994,7 +994,7 @@ def resetLayout(curr_layout,className):
                 if widget_sub_item.widget() is not None:
                     widget = widget_sub_item.widget()
                     #If it's the dropdown segment, label it as such
-                    if not ("CandidateFindingDropdown" in widget.objectName()) and not ("CandidateFittingDropdown" in widget.objectName()) and widget.objectName() != f"titleLabel_{className}" and not ("KEEP" in widget.objectName()):
+                    if "CandidateFindingDropdown" not in widget.objectName() and "CandidateFittingDropdown" not in widget.objectName() and widget.objectName() != f"titleLabel_{className}" and "KEEP" not in widget.objectName():
                         logging.debug(f"Hiding {widget.objectName()}")
                         widget.hide()
 
@@ -1017,19 +1017,19 @@ def lineEditFileLookup(line_edit_objName, text, filter,parent=None):
     parentFolder = line_edit_objName.text()
     if parentFolder != "":
         parentFolder = os.path.dirname(parentFolder)
-    
+
     file_path = generalFileSearchButtonAction(parent=parent,text=text,filter=filter,parentFolder=parentFolder)
     line_edit_objName.setText(file_path)
-        
+
 
 def lineEditFileSaveLookup(line_edit_objName, text, filter,parent=None):
     parentFolder = line_edit_objName.text()
     if parentFolder != "":
         parentFolder = os.path.dirname(parentFolder)
-    
+
     file_path = generalFileSaveButtonAction(parent=parent,text=text,filter=filter,parentFolder=parentFolder)
     line_edit_objName.setText(file_path)
-        
+
 def generalFileSearchButtonAction(parent=None,text='Select File',filter='*.txt',parentFolder=""):
     file_path, _ = QFileDialog.getOpenFileName(parent,text,parentFolder,filter=filter)
     return file_path
@@ -1043,7 +1043,7 @@ def generalSaveButtonAction(parent=None,text='Select File',filter='*.txt',parent
     return file_path
 
 
-    
+
 def getEvalTextFromGUIFunction(methodName, methodKwargNames, methodKwargValues, partialStringStart=None, removeKwargs=None):
     #--------------------------------------------------------------------------------------------------------------------------------------------------------------------
     #methodName: the physical name of the method, i.e. StarDist.StarDistSegment
@@ -1072,7 +1072,7 @@ def getEvalTextFromGUIFunction(methodName, methodKwargNames, methodKwargValues, 
         if all(elem in set(methodKwargNames) for elem in reqKwargs):
             allreqKwargsHaveValue = True
             for id in range(0,len(reqKwargs)):
-                #First find the index of the function-based reqKwargs in the GUI-based methodKwargNames. 
+                #First find the index of the function-based reqKwargs in the GUI-based methodKwargNames.
                 GUIbasedIndex = methodKwargNames.index(reqKwargs[id])
                 #Get the value of the kwarg - we know the name already now due to reqKwargs.
                 kwargvalue = methodKwargValues[GUIbasedIndex]
@@ -1087,7 +1087,7 @@ def getEvalTextFromGUIFunction(methodName, methodKwargNames, methodKwargValues, 
                 else:
                     partialString = ''
                 for id in range(0,len(reqKwargs)):
-                    #First find the index of the function-based reqKwargs in the GUI-based methodKwargNames. 
+                    #First find the index of the function-based reqKwargs in the GUI-based methodKwargNames.
                     GUIbasedIndex = methodKwargNames.index(reqKwargs[id])
                     #Get the value of the kwarg - we know the name already now due to reqKwargs.
                     kwargvalue = methodKwargValues[GUIbasedIndex]
@@ -1123,7 +1123,7 @@ def getEvalTextFromGUIFunction(methodName, methodKwargNames, methodKwargValues, 
         else:
             logging.error('SOMETHING VERY STUPID HAPPENED')
             return None
-        
+
 
 
 """ 
@@ -1138,7 +1138,7 @@ def determineAllStartStopTimesHDF(dataLocation,timeChunkMs=10000,timeChunkOverla
         #Events are here in this file:
         events_hdf5 = file['CD']['events']
         hdf5_maxtime = events_hdf5[events_hdf5.size-1]['t']/1000
-    
+
     if chunkStartStopTime[1]-chunkStartStopTime[0] < timeChunkMs: #a very short time
         #We just need a single chunk:
         start_time_ms_arr = [np.maximum(chunkStartStopTime[0]-timeChunkOverlapMs,0)]
@@ -1152,14 +1152,14 @@ def determineAllStartStopTimesHDF(dataLocation,timeChunkMs=10000,timeChunkOverla
                 end_time_ms_arr = np.array([np.inf])
             else:
                 logging.error('Not sure how to do the chunking here...')
-    
+
     return start_time_ms_arr,end_time_ms_arr
 
 def findIndexFromTimeSliceHDF(dataLocation,requested_start_time_ms_arr = [0],requested_end_time_ms_arr=[1000],n_course_chunks = 5000):
     # Returns:
     #N-by-2 array of start/end indeces from hdf5 file:
     startEndIndecesHdf5File = np.zeros((len(requested_start_time_ms_arr),2))
-    
+
     #Check if start/end time arrays are same size:
     if len(requested_start_time_ms_arr) != len(requested_end_time_ms_arr):
         logging.error('Start and end time arrays must be same size!')
@@ -1169,12 +1169,12 @@ def findIndexFromTimeSliceHDF(dataLocation,requested_start_time_ms_arr = [0],req
     with h5py.File(dataLocation, mode='r') as file:
         #Events are here in this file:
         events_hdf5 = file['CD']['events']
-        
+
         howOftenCheckHdfTime= events_hdf5.size//n_course_chunks
-        
+
         #Create a 'chunk' array that links chunk nrs to times:
         chunk_arr = np.zeros(int(np.ceil(events_hdf5.size/howOftenCheckHdfTime)),)
-        
+
         curr_chunk = 0
         allChunksFound=False
         #Loop over the hdf5 to get course info:
@@ -1193,7 +1193,7 @@ def findIndexFromTimeSliceHDF(dataLocation,requested_start_time_ms_arr = [0],req
             #First get the coarse/wide start/end index:
             wide_start_index = np.max((0,np.where(chunk_arr > start_time)[0][0]-1))
             wide_end_index = np.min((events_hdf5.size,np.where(chunk_arr <= end_time)[0][-1]))
-            
+
             #If wide_start_index is e.g. at index 10, we know for sure our exact start time is somewhere between 10 and 11.
             #Thus, we exract the data between wide_start_index and wide_start_index+1:
             precise_start_lookupdata = events_hdf5[wide_start_index*howOftenCheckHdfTime:(wide_start_index+1)*howOftenCheckHdfTime]['t']/1000
@@ -1206,8 +1206,8 @@ def findIndexFromTimeSliceHDF(dataLocation,requested_start_time_ms_arr = [0],req
             else: #Set to teh hdf5 size
                 lookup_end_index = int(events_hdf5.size-1)
             #Add to big array
-            startEndIndecesHdf5File[index] = (lookup_start_index,lookup_end_index) 
-        
+            startEndIndecesHdf5File[index] = (lookup_start_index,lookup_end_index)
+
         return startEndIndecesHdf5File
 
 def timeSliceFromHDFFromIndeces(dataLocation,startEndIndecesHdf5File,index=0):
@@ -1358,7 +1358,7 @@ class SmallWindow(QMainWindow):
     """ 
     General class that creates a small popup window to have some data. Mostly used for utility functions.
     """
-    
+
     #Create a small window that pops up
     def __init__(self, parent, windowTitle="Small Window"):
         super().__init__(parent)
@@ -1368,7 +1368,7 @@ class SmallWindow(QMainWindow):
         self.parent = parent
         # Set the window icon to the parent's icon
         self.setWindowIcon(self.parent.windowIcon())
-        
+
         #Add a layout
         layout = QVBoxLayout()
         self.setCentralWidget(QWidget())  # Create a central widget for the window
@@ -1386,13 +1386,13 @@ class SmallWindow(QMainWindow):
             folderName = filefolder
         except:
             folderName = ""
-        
+
         file_name, _ = QFileDialog.getOpenFileName(None, "Open File", folderName, fileArgs, options=options)
         if file_name:
             self.fileLocationLineEdit.setText(file_name)
-        
+
         return file_name
-    
+
     #Add extra text before the period
     def addTextPrePriod(self,lineedit,LineEditText,textAddPrePeriod = ""):
         #Add the textAddPrePriod directly before the last found period in the LineEditText:
@@ -1404,7 +1404,7 @@ class SmallWindow(QMainWindow):
             except:
                 pass
         lineedit.setText(LineEditText)
-        
+
     #change the text after the period
     def changeTextPostPeriod(self,lineedit,LineEditText,textPostPeriod = ""):
         #Add the textAddPrePriod directly before the last found period in the LineEditText:
@@ -1416,7 +1416,7 @@ class SmallWindow(QMainWindow):
             except:
                 pass
         lineedit.setText(LineEditText)
-    
+
     def addMarkdown(self,mdfile,width=700,height=800):
         newlayout = QVBoxLayout()
         markdownViewer = QWebEngineView()
@@ -1460,7 +1460,7 @@ class SmallWindow(QMainWindow):
         markdownViewer.setHtml(full_html, QUrl.fromLocalFile(base_dir + "/"))
         newlayout.addWidget(markdownViewer)
         self.centralWidget().layout().addLayout(newlayout)
-    
+
     def addDescription(self,description):
         #Create a horizontal box layout:
         layout = QHBoxLayout()
@@ -1472,7 +1472,7 @@ class SmallWindow(QMainWindow):
         #Add the layout to the central widget:
         self.centralWidget().layout().addLayout(layout)
         return self.descriptionLabel
-    
+
     def addButton(self,buttonText="Button"):
         #Create a horizontal box layout:
         layout = QHBoxLayout()
@@ -1483,7 +1483,7 @@ class SmallWindow(QMainWindow):
         #Add the layout to the central widget:
         self.centralWidget().layout().addLayout(layout)
         return self.button
-    
+
     def addTextEdit(self,labelText = "Text edit:", preFilledText = ""):
         #Create a horizontal box layout:
         layout = QHBoxLayout()
@@ -1496,7 +1496,7 @@ class SmallWindow(QMainWindow):
         #Add the layout to the central widget:
         self.centralWidget().layout().addLayout(layout)
         return self.textEdit
-    
+
     def addMultiLineTextEdit(self,labelText = "Text edit:", preFilledText = ""):
         #Create a horizontal box layout:
         layout = QHBoxLayout()
@@ -1509,7 +1509,7 @@ class SmallWindow(QMainWindow):
         #Add the layout to the central widget:
         self.centralWidget().layout().addLayout(layout)
         return self.textEdit
-    
+
     #Add a file information label/text/button:
     def addFileLocation(self, labelText="File location:", textAddPrePeriod = "", textPostPeriod = ""):
         #Create a horizontal box layout:
@@ -1518,14 +1518,14 @@ class SmallWindow(QMainWindow):
         self.fileLocationLabel = QLabel(labelText)
         self.fileLocationLineEdit = QLineEdit()
         LineEditText = self.parent.dataLocationInput.text()
-        
+
         self.addTextPrePriod(self.fileLocationLineEdit,LineEditText,textAddPrePeriod)
         LineEditText = self.fileLocationLineEdit.text()
         self.changeTextPostPeriod(self.fileLocationLineEdit,LineEditText,textPostPeriod)
-        
+
         self.fileLocationButton = QPushButton("...")
         self.fileLocationButton.clicked.connect(lambda: self.openFileDialog(fileArgs = "All Files (*)"))
-        
+
         #Add the label, line edit and button to the layout:
         layout.addWidget(self.fileLocationLabel)
         layout.addWidget(self.fileLocationLineEdit)
@@ -1602,12 +1602,12 @@ def timeSliceFromHDF(dataLocation,requested_start_time_ms = 0,requested_end_time
         time2 = time.time()
         #Now we know the start/end index, so we cut out that area:
         wantedEvents_tooLarge = events_hdf5[lookup_start_index:lookup_end_index]
-        
+
         time3 = time.time()
     #And we fully cut it to exact size:
     events_output = wantedEvents_tooLarge[(wantedEvents_tooLarge['t'] >= requested_start_time_ms*1000) & (wantedEvents_tooLarge['t'] <= requested_end_time_ms*1000)]
     time4 = time.time()
-    
+
 
     #Return the events
     return events_output,curr_chunk
@@ -1627,11 +1627,11 @@ def printInformationFromFunction(functionName):
     InfoString += f"\033[1m{displayNamev[0][0]}\033[0m\n"
     InfoString += f"\033[31mHelp info\033[0m \n\033[33m{helpString}\033[0m\n"
     if len(reqKwargs) > 0:
-        InfoString += f"\033[31mRequired parameters\033[0m\n"
+        InfoString += "\033[31mRequired parameters\033[0m\n"
         for i in range(len(reqKwargs)):
             InfoString+=f"\033[33m{displayNameFromKwarg(functionName,reqKwargs[i])} [{reqKwargs[i]}]: \n\t{infoFromMetadata(functionName,specificKwarg=reqKwargs[i])} \n\tDefault value: {defaultValueFromKwarg(functionName,kwargname=reqKwargs[i])}\n\033[0m"
     if len(optKwargs) > 0:
-        InfoString += f"\033[31mOptional parameters\033[0m\n"
+        InfoString += "\033[31mOptional parameters\033[0m\n"
         for i in range(len(optKwargs)):
             InfoString+=f"\033[33m{displayNameFromKwarg(functionName,optKwargs[i])} [{optKwargs[i]}]: \n\t{infoFromMetadata(functionName,specificKwarg=optKwargs[i])} \n\tDefault value: {defaultValueFromKwarg(functionName,kwargname=optKwargs[i])}\n\033[0m"
     return InfoString

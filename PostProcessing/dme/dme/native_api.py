@@ -26,7 +26,7 @@ class NativeAPI:
             name = "dme_cuda"
         else:
             name = "dme_cpu"
-        
+
         if debugMode:
             dllpath = "debug/"
         else:
@@ -38,30 +38,30 @@ class NativeAPI:
             dllpath = f"/../bin/{dllpath}lib{name}.so"
 
         abs_dllpath = os.path.abspath(thispath + dllpath)
-        
+
         if debugMode:
             print("Using " + abs_dllpath)
         self.debugMode = debugMode
-        
+
         currentDir = os.getcwd()
         os.chdir(os.path.dirname(abs_dllpath))
 
         lib = ctypes.CDLL(abs_dllpath)
         os.chdir(currentDir)
-        
+
         self.lib_path = abs_dllpath
         self.lib = lib
-        
+
         self.DebugPrintCallback = ctypes.CFUNCTYPE(ctypes.c_int32, ctypes.c_char_p)
         self._SetDebugPrintCallback = lib.SetDebugPrintCallback
         self._SetDebugPrintCallback.argtypes = [self.DebugPrintCallback]
 
 #void(*cb)(int width,int height, int numImg, const float* data, const char* title));
-                
+
 #        self._GetDeviceMemoryAllocation = smlmlib.GetDeviceMemoryAllocation
 
         self.SetDebugPrintCallback(debugPrint)
-        
+
         """
         CDLL_EXPORT IDriftEstimator* DME_CreateInstance(const float* coords_, const float* crlb_, const int* spotFramenum, int numspots,
                                                          float* drift, int framesPerBin, float gradientStep, float maxdrift, int flags, int maxneighbors);
@@ -78,14 +78,14 @@ class NativeAPI:
             ctypes.c_float, # maxdrift
             ctypes.c_int32, # flags
             ctypes.c_int32, # maxneighbors
-            ] 
+            ]
         self._DME_CreateInstance.restype = ctypes.c_void_p
 
         """        
         // Drift estimation step. Zero pointers can be passed to status_msg, score, and drift_estimate if not needed
         CDLL_EXPORT int DME_Step(IDriftEstimator* estimator, char* status_msg, int status_max_length, float* score, float* drift_estimate);
         """
-        
+
         self._DME_Step = self.lib.DME_Step
         self._DME_Step.argtypes = [
             ctypes.c_void_p,
@@ -95,13 +95,13 @@ class NativeAPI:
             ctl.ndpointer(np.float32, flags="aligned, c_contiguous")  # drift_estimate [numframes, numdims]
             ]
         self._DME_Step.restype = ctypes.c_int
-        
+
         self._DME_Close = self.lib.DME_Close
         self._DME_Close.argtypes = [ ctypes.c_void_p ]
 
 
-                
-        
+
+
         # (float * image, int imgw, int imgh, float * spotList, int nspots)
         self._Gauss2D_Draw = lib.Gauss2D_Draw
         self._Gauss2D_Draw.argtypes = [
@@ -111,8 +111,8 @@ class NativeAPI:
             ctl.ndpointer(np.float32, flags="aligned, c_contiguous"),  # mu
             ctypes.c_int32
         ]
-        
-        
+
+
     # Spots is an array with rows: [ x,y, sigmaX, sigmaY, intensity ]
     def DrawGaussians(self, img, spots):
         spots = np.ascontiguousarray(spots, dtype=np.float32)
@@ -134,20 +134,20 @@ class NativeAPI:
                 # Free DLL so we can overwrite the file when we recompile
                 ctypes.windll.kernel32.FreeLibrary.argtypes = [ctypes.wintypes.HMODULE]
                 ctypes.windll.kernel32.FreeLibrary(self.lib._handle)
-            
+
             self.lib = None
-        
-        
-    def MinEntropyDriftEstimate(self, positions, framenum, drift, crlb, iterations, 
-                        stepsize, maxdrift, framesPerBin=1, cuda=False, progcb=None,flags=0, 
+
+
+    def MinEntropyDriftEstimate(self, positions, framenum, drift, crlb, iterations,
+                        stepsize, maxdrift, framesPerBin=1, cuda=False, progcb=None,flags=0,
                         maxneighbors=10000):
-        
+
         positions = np.ascontiguousarray(positions,dtype=np.float32)
         framenum = np.ascontiguousarray(framenum,dtype=np.int32)
         drift = np.ascontiguousarray(drift,dtype=np.float32)
-        
+
         nframes = len(drift) # np.max(framenum)+1
-        
+
         assert drift.shape[1]==positions.shape[1]
 
         if len(drift)>nframes:
@@ -156,9 +156,9 @@ class NativeAPI:
 
         if cuda:
             flags |= 2
-                    
+
         scores = np.zeros(iterations,dtype=np.float32)
-        
+
         if positions.shape[1] == 3:
             flags |= 1 # 3D
 
@@ -173,12 +173,12 @@ class NativeAPI:
         else:
             assert np.array_equal(crlb.shape,positions.shape)
             #print(f"DME: Using variable crlb")
-            
+
         crlb=np.ascontiguousarray(crlb,dtype=np.float32)
-                
+
         if progcb is None:
             progcb = lambda i,txt,drift: 1
-            
+
         def cb(iteration, info, estimate):
             estimate = ctl.as_array(estimate, (nframes, positions.shape[1]))
             return progcb(iteration, info, estimate)
@@ -195,14 +195,14 @@ class NativeAPI:
             while i<iterations:
                 r = self._DME_Step(inst, statusbuf, len(statusbuf), score, drift_estimate)
                 status=statusbuf.value.decode('utf-8')
-                
+
                 #print(f'status={status}. score={score[0]}')
                 cb(i, status, drift_estimate)
                 if r == 0:
                     break
                 i+=1
 
-        finally:    
+        finally:
             self._DME_Close(inst)
 
         return drift_estimate, scores[:i]
@@ -213,4 +213,4 @@ class NativeAPI:
 
     def __exit__(self, *args):
         self.Close()
-        
+

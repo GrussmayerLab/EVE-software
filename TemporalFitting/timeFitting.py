@@ -47,7 +47,7 @@ class TwoDfit(fit):
     def __init__(self, dist, use_weights=True):
         super().__init__()
         self.ylim, self.xlim = dist.dist2D.shape
-        self.xmean = np.average(np.arange(1,self.xlim+1), weights=np.nansum(dist.dist2D, axis=0))-1. 
+        self.xmean = np.average(np.arange(1,self.xlim+1), weights=np.nansum(dist.dist2D, axis=0))-1.
         self.ymean = np.average(np.arange(1,self.ylim+1), weights=np.nansum(dist.dist2D, axis=1))-1.
         self.dist = dist # I don't need this
         self.image = dist.dist2D.ravel()
@@ -65,13 +65,13 @@ class TwoDfit(fit):
             self.sigma = weights[mask]
         self.imstats = [np.nanpercentile(self.image, 90), np.nanpercentile(self.image, 10)]
         self.mesh = self.meshgrid()
-    
+
     def meshgrid(self):
         x = np.arange(self.xlim)
         y = np.arange(self.ylim)
         X,Y = np.meshgrid(x,y)
         return X.ravel(),Y.ravel()
-    
+
     def __call__(self, func, **kwargs):
         popt, perr = super().__call__(func, self.mesh, self.image, sigma=self.sigma, nan_policy='omit', **kwargs)
         return popt, perr
@@ -97,23 +97,23 @@ class gauss2D(TwoDfit):
     def bounds(self):
         bounds = ([-0.5, -0.5, 0., self.width_bounds[0], 0.], [self.xlim-0.5, self.ylim-0.5, np.inf, self.width_bounds[1], np.inf]) # allow borders of pixels
         return bounds
-    
+
     def p0(self):
         p0 = (self.xmean, self.ymean, self.width, self.ratio, self.imstats[0])
         return p0
-    
+
     def func(self, XY, x0, y0, sigma, sigma_xy_ratio, amplitude):
         X, Y = XY
         g = amplitude * np.exp( - ((X-x0)**2/(2*sigma**2) + (Y-y0)**2/(2*(sigma*sigma_xy_ratio)**2))) + self.offset
         return g
-    
+
     def __call__(self, dist, events, opt_loc, **kwargs):
         opt, err = super().__call__(self.func, bounds=self.bounds, p0=self.p0, **kwargs)
         t = np.mean(events['t']*1e-3) # in ms
         del_t = np.std(events['t']*1e-3) # in ms
         if self.fit_info == '':
             xy_threshold = 2. # threshold in px
-            if abs(opt_loc[0]-opt[0])>xy_threshold or abs(opt_loc[1]-opt[1])>xy_threshold: 
+            if abs(opt_loc[0]-opt[0])>xy_threshold or abs(opt_loc[1]-opt[1])>xy_threshold:
                 self.fit_info += 'TimeToleranceWarning: Temporal fit result exceeds the tolerance.'
                 opt = np.array([np.nan])
             else:
@@ -123,13 +123,13 @@ class gauss2D(TwoDfit):
                 t_max = np.max(events['t']*1e-3)
                 if t_estimated<t_min or t_estimated>t_max:
                     self.fit_info += 'TimeToleranceWarning: Estimated time out of bounds.'
-                else: 
+                else:
                     t = t_estimated
                     del_t = np.sqrt(err[4]**2)*1e-3 # in ms # + err[5]**2
                     opt[4] = (-1)*opt[4]*1e-3 # in ms
                     self.offset = dist.undo_trafo_gauss(self.offset)*1e-3 # in ms
         return t, del_t, self.fit_info, opt
-    
+
 class cumsum_fit(fit):
     def __init__(self, events, **kwargs):
         super().__init__()
@@ -138,21 +138,21 @@ class cumsum_fit(fit):
         # make sure that self.times is sorted in time
         self.times = np.sort(self.times)
         self.t0 = events['t'].values[0]*1e-3 # in ms
-    
+
     def __call__(self, func, **kwargs):
         popt, perr = super().__call__(func, self.times, self.cumsum, **kwargs)
         return popt, perr
-    
+
 class lognormal_cdf(cumsum_fit):
     def __init__(self, events, **kwargs):
         super().__init__(events, **kwargs)
         self.bounds = self.bounds()
         self.p0 = self.p0()
-    
+
     def bounds(self):
         bounds = ((0., np.finfo(np.float64).tiny/np.sqrt(2.), self.t0-2*np.std(self.times), 0.0, 0.0, 0.0), (np.inf, np.inf, self.times[-1], np.inf, np.inf, np.inf))
         return bounds
-    
+
     def p0(self):
         max_cumsum = np.max(self.cumsum)
         i_half_max = np.argmax(self.cumsum >= 0.5 * max_cumsum)
@@ -164,13 +164,13 @@ class lognormal_cdf(cumsum_fit):
         offset = 0.
         p0 = [mu, sigma, shift, scale, slope, offset]
         return p0
-    
+
     def get_time(self, opt, err, mean_t, std_t):
         mu, sigma, shift, scale, slope, offset = opt
         err_mu, err_sigma, err_shift, err_scale, err_slope, err_offset = err
         t_fit_info = ''
         warnings.simplefilter("error", RuntimeWarning)
-        try: 
+        try:
             alpha = alpha = 0.5*(1.+erf(-sigma/np.sqrt(2)))
             x_hat = np.exp(mu-sigma**2)+shift
             a_fac = np.exp(sigma**2/2.-mu)/(np.sqrt(2*np.pi)*sigma)
@@ -198,7 +198,7 @@ class lognormal_cdf(cumsum_fit):
                 t_fit_info = 'TimeRuntimeWarning: Fit yields unphysical results.'
         warnings.simplefilter("ignore", RuntimeWarning)
         return t_intersect, del_t_intersect, a, b, t_fit_info
-    
+
     def func(self, t, mu, sigma, shift, scale, slope, offset):
         shift_t = (t - shift) # shift t
         res = np.zeros_like(t)
@@ -207,7 +207,7 @@ class lognormal_cdf(cumsum_fit):
         res[condition] = scale * (0.5 + 0.5 * erf((np.log(shift_t_condition)-mu) / (np.sqrt(2) * sigma)))
         res += slope*(t-self.t0) + offset
         return res
-    
+
     def __call__(self, **kwargs): # event-threshold defines how to get the fitted time
         opt, err = super().__call__(self.func, p0=self.p0, bounds=self.bounds, **kwargs) # maxfev=5e4
         t = np.mean(self.times)
@@ -223,17 +223,17 @@ class lognormal_cdf(cumsum_fit):
             else:
                 t, del_t = time_fit_results[0:2]
         return t, del_t, self.fit_info, opt
-    
+
 class lognormal_cdf_background_removed(cumsum_fit):
     def __init__(self, events, **kwargs):
         super().__init__(events, **kwargs)
         self.bounds = self.bounds()
         self.p0 = self.p0()
-    
+
     def bounds(self):
         bounds = ((0., np.finfo(np.float64).tiny/np.sqrt(2.), self.t0-2*np.std(self.times), 0.0), (np.inf, np.inf, self.times[-1], np.inf))
         return bounds
-    
+
     def p0(self):
         max_cumsum = np.max(self.cumsum)
         i_half_max = np.argmax(self.cumsum >= 0.5 * max_cumsum)
@@ -243,13 +243,13 @@ class lognormal_cdf_background_removed(cumsum_fit):
         scale = max_cumsum
         p0 = [mu, sigma, shift, scale]
         return p0
-    
+
     def get_time(self, opt, err, mean_t, std_t):
         mu, sigma, shift, scale, = opt
         err_mu, err_sigma, err_shift, err_scale = err
         t_fit_info = ''
         warnings.simplefilter("error", RuntimeWarning)
-        try: 
+        try:
             alpha = alpha = 0.5*(1.+erf(-sigma/np.sqrt(2)))
             x_hat = np.exp(mu-sigma**2)+shift
             a_fac = np.exp(sigma**2/2.-mu)/(np.sqrt(2*np.pi)*sigma)
@@ -277,7 +277,7 @@ class lognormal_cdf_background_removed(cumsum_fit):
                 t_fit_info = 'TimeRuntimeWarning: Fit yields unphysical results.'
         warnings.simplefilter("ignore", RuntimeWarning)
         return t_intersect, del_t_intersect, a, b, t_fit_info
-    
+
     def func(self, t, mu, sigma, shift, scale):
         shift_t = (t - shift) # shift t
         res = np.zeros_like(t)
@@ -285,7 +285,7 @@ class lognormal_cdf_background_removed(cumsum_fit):
         shift_t_condition = shift_t[condition]
         res[condition] = scale * (0.5 + 0.5 * erf((np.log(shift_t_condition)-mu) / (np.sqrt(2) * sigma)))
         return res
-    
+
     def __call__(self, **kwargs): # event-threshold defines how to get the fitted time
         opt, err = super().__call__(self.func, p0=self.p0, bounds=self.bounds, **kwargs) # maxfev=5e4
         t = np.mean(self.times)
@@ -332,7 +332,7 @@ class TwoDGaussianFirstTime(TemporalFits):
         self.fit = gauss2D(firstTimes, use_weights=use_weights)
         t, del_t, self.fit_info, opt = self.fit(firstTimes, first_events, opt_loc, **kwargs)
         return t, del_t, self.fit_info, opt
-    
+
 class LognormCDFAllEvents(TemporalFits):
     display_name = "Lognormal CDF (all events)"
     description = "Lognormal CDF fit of cumulative sum of all events."
@@ -346,7 +346,7 @@ class LognormCDFAllEvents(TemporalFits):
         self.fit = lognormal_cdf(events)
         t, del_t, self.fit_info, opt = self.fit()
         return t, del_t, self.fit_info, opt
-    
+
 class LognormCDFFirstEvents(TemporalFits):
     display_name = "Lognormal CDF (first events)"
     description = "Lognormal CDF fit of cumulative sum of all first events per pixel."
@@ -361,7 +361,7 @@ class LognormCDFFirstEvents(TemporalFits):
         self.fit = lognormal_cdf(first_events)
         t, del_t, self.fit_info, opt = self.fit()
         return t, del_t, self.fit_info, opt
-    
+
 class LognormCDFFirstEvents_weighted(TemporalFits):
     display_name = "Lognormal CDF (first events, weighted)"
     description = "Lognormal CDF fit of cumulative sum of all events, each event is weighted by the number of events/pixel."

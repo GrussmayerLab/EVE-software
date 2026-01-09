@@ -80,10 +80,10 @@ def radialcenter(distfunc, candidateID, candidate, time_fit, pixel_size):
     fdv = convolve(dIdv, h, mode='constant')
     dImag2 = fdu**2 + fdv**2  # gradient magnitude, squared
 
-    # Slope of the gradient .  Note that we need a 45 degree rotation of 
+    # Slope of the gradient .  Note that we need a 45 degree rotation of
     # the u,v components to express the slope in the x-y coordinate system.
     # The negative sign "flips" the array to account for y increasing
-    # "downward" 
+    # "downward"
     m = -(fdv + fdu) / (fdu - fdv)
 
     # *Very* rarely, m might be NaN if (fdv + fdu) and (fdv - fdu) are both
@@ -118,7 +118,7 @@ def radialcenter(distfunc, candidateID, candidate, time_fit, pixel_size):
     # y intercept of the line of slope m that goes through each grid midpoint
     b = ym - m * xm
 
-    # Weighting: weight by square of gradient magnitude and inverse 
+    # Weighting: weight by square of gradient magnitude and inverse
     # distance to gradient intensity centroid.
     sdI2 = np.sum(dImag2)
     xcentroid = np.sum(np.sum(dImag2 * xm)) / sdI2
@@ -133,13 +133,13 @@ def radialcenter(distfunc, candidateID, candidate, time_fit, pixel_size):
 
 
 
-    
+
     # Return output relative to upper left coordinate
     xc += (Nx - 1) / 2.0
     yc += (Ny - 1) / 2.0
 
     # A rough measure of the particle width.
-    # Not at all connected to center determination, but may be useful for tracking applications; 
+    # Not at all connected to center determination, but may be useful for tracking applications;
     # could eliminate for (very slightly) greater speed
     Isub = I - np.min(I)
     px, py = np.meshgrid(np.arange(1, Nx + 1), np.arange(1, Ny + 1))
@@ -205,11 +205,11 @@ class radysm:
         h = np.ones((3, 3)) / 9.0  #simple 3x3 averaging filter
         fdu = convolve(dIdu, h, mode='constant')
         fdv = convolve(dIdv, h, mode='constant')
-        
-        # Slope of the gradient.  Note that we need a 45 degree rotation of 
+
+        # Slope of the gradient.  Note that we need a 45 degree rotation of
         # the u,v components to express the slope in the x-y coordinate system.
         # The negative sign "flips" the array to account for y increasing
-        # "downward" 
+        # "downward"
         m = -(fdv + fdu) / (fdu - fdv)
 
         # *Very* rarely, m might be NaN if (fdv + fdu) and (fdv - fdu) are both
@@ -232,36 +232,36 @@ class radysm:
             m[np.isinf(m)] = 10 * np.nanmax(m[~np.isinf(m)])
         except:
             # if this fails, it's because all the elements are infinite.  Replace
-            # with the unsmoothed derivative.  
+            # with the unsmoothed derivative.
             m = (dIdv + dIdu) / (dIdu - dIdv)
 
-        # Weighting: weight by square of gradient magnitude and inverse 
+        # Weighting: weight by square of gradient magnitude and inverse
         # distance to gradient intensity centroid.
         dImag2 = fdu**2 + fdv**2  # gradient magnitude, squared
         return m.ravel(), dImag2.ravel()
 
     def weight(self):
-        # Weighting: weight by square of gradient magnitude and inverse 
+        # Weighting: weight by square of gradient magnitude and inverse
         # distance to gradient intensity centroid.
         sdI2 = np.sum(self.magnitude)
         xcentroid = np.sum(np.sum(self.magnitude * self.mesh[0])) / sdI2
         ycentroid = np.sum(np.sum(self.magnitude * self.mesh[1])) / sdI2
         w = self.magnitude / np.sqrt((self.mesh[0] - xcentroid)**2 + (self.mesh[1] - ycentroid)**2)
         return w
-    
+
     def p0(self):
         p0 = [self.xmean, self.ymean]
         return p0
-    
+
     def bounds(self):
         bounds = ([-0.5-self.shift[0], -0.5-self.shift[1]], [self.xlim-0.5-self.shift[0], self.ylim-0.5-self.shift[1]]) # allow borders of pixels
         return bounds
-    
+
     def distance(self, xy_c): # function to minimize with least-squares
         X, Y = self.mesh
         d = ((Y-xy_c[1])-self.slope*(X-xy_c[0]))/np.sqrt(self.slope**2+1.)*np.sqrt(self.weights)
         return d
-        
+
     def __call__(self, candidate, time_fit, pixel_size, candidateID, **kwargs):
         try:
             res = least_squares(self.distance, self.p0(), bounds=self.bounds(), **kwargs)
@@ -291,7 +291,7 @@ class radysm:
             del_y = np.nan
             t = np.nan
             del_t = np.nan
-        else: 
+        else:
             x = (popt[0]+np.min(candidate['events']['x']))*pixel_size # in nm
             y = (popt[1]+np.min(candidate['events']['y']))*pixel_size # in nm
             del_x = perr[0]*pixel_size # in nm
@@ -351,7 +351,7 @@ def distance(P, Gx ,Gy ,Gz ,w ):
     '''
 
     # We will now reshape the arrays to 2D for easier calculation and perform the same operation
-    
+
 
     #For consistency we will index the arrays in the same way as the original code, not the default 'C' indexing
     x_coords, y_coords, z_coords = np.meshgrid(np.arange(w.shape[0]), np.arange(w.shape[1]), np.arange(w.shape[2]), indexing='ij')
@@ -427,7 +427,7 @@ def radialcenter3d(candidateID, candidate, time_bin_width, pixel_size):
         Gx = ndimage.sobel(I, axis=0)
         Gy = ndimage.sobel(I, axis=1)
         Gz = ndimage.sobel(I, axis=2)
-   
+
     # Smoothing to reduce the effect of noise
     h = np.ones((3, 3, 3)) / 27.0 # 3x3x3 averaging filter
     Gx = ndimage.convolve(Gx, h, mode='constant')
@@ -446,10 +446,10 @@ def radialcenter3d(candidateID, candidate, time_bin_width, pixel_size):
     print(xcentroid, ycentroid, zcentroid)
     w = rsqr / (np.sqrt((xm-xcentroid)**2 + (ym-ycentroid)**2 + (zm-zcentroid)**2))
 
-    #Instead of looping through every voxel, instead reshape the 3D arrays as 1D array in the function   
+    #Instead of looping through every voxel, instead reshape the 3D arrays as 1D array in the function
 
     # Minimizing the distance from each gradient line to a point P (optimized P coords will be xc, yc, zc)
-    
+
     # Using the estimated centroids to define an initial centre location guess
     initial_guess = [xcentroid, ycentroid, zcentroid]
     # Ensuring the optimized center is within the bounds of the image
@@ -533,7 +533,7 @@ def RadialSym2D(candidate_dic,settings,**kwargs):
 
     if multithread == True: num_cores = multiprocessing.cpu_count()
     else: num_cores = 1
-    
+
     # Determine number of jobs on CPU and slice data accordingly
     njobs, num_cores = utilsHelper.nb_jobs(candidate_dic, num_cores)
     data_split = utilsHelper.slice_data(candidate_dic, njobs)
@@ -542,13 +542,13 @@ def RadialSym2D(candidate_dic,settings,**kwargs):
 
     # Determine all localizations
     RES = Parallel(n_jobs=num_cores,backend="loky")(delayed(localize_canditates2D)(i, data_split[i], distfunc, time_fit, pixel_size) for i in range(len(data_split)))
-    
+
     localization_list = [res[0] for res in RES]
     localizations = pd.concat(localization_list, ignore_index=True)
 
     fail_list = [res[1] for res in RES]
     fails = pd.concat(fail_list, ignore_index=True)
-    
+
     # Fit performance information
     radSym_fit_info = utilsHelper.info(localizations, fails)
 
@@ -573,7 +573,7 @@ def RadialSym3D(candidate_dic,settings,**kwargs):
 
     if multithread == True: num_cores = multiprocessing.cpu_count()
     else: num_cores = 1
-    
+
     # Determine number of jobs on CPU and slice data accordingly
     njobs, num_cores = utilsHelper.nb_jobs(candidate_dic, num_cores)
     data_split = utilsHelper.slice_data(candidate_dic, njobs)
@@ -582,13 +582,13 @@ def RadialSym3D(candidate_dic,settings,**kwargs):
 
     # Determine all localizations
     RES = Parallel(n_jobs=num_cores,backend="loky")(delayed(localize_canditates3D)(i, data_split[i], time_bin_width, pixel_size) for i in range(len(data_split)))
-    
+
     localization_list = [res[0] for res in RES]
     localizations = pd.concat(localization_list, ignore_index=True)
 
     fail_list = [res[1] for res in RES]
     fails = pd.concat(fail_list, ignore_index=True)
-    
+
     # Fit performance information
     radSym_fit_info = utilsHelper.info(localizations, fails)
 

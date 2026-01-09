@@ -39,9 +39,8 @@ from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QFi
 #Imports for PyQt5 (GUI)
 from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtGui import QCursor, QTextCursor, QIntValidator, QColor
-from PyQt5.QtWidgets import QApplication, QHBoxLayout, QVBoxLayout, QTableWidget, QTableWidgetItem, QLayout, QMainWindow, QLabel, QPushButton, QSizePolicy, QGroupBox, QTabWidget, QGridLayout, QWidget, QComboBox, QLineEdit, QFileDialog, QToolBar, QCheckBox,QDesktopWidget, QMessageBox, QTextEdit, QSlider, QSpacerItem, QTableView, QFrame, QScrollArea, QProgressBar, QMenu, QMenuBar, QColorDialog
+from PyQt5.QtWidgets import QHBoxLayout, QTableWidget, QTableWidgetItem, QLayout, QMainWindow, QLabel, QSizePolicy, QGroupBox, QTabWidget, QGridLayout, QComboBox, QLineEdit, QToolBar, QCheckBox,QDesktopWidget, QMessageBox, QTextEdit, QSlider, QSpacerItem, QTableView, QFrame, QScrollArea, QProgressBar, QMenu, QMenuBar, QColorDialog
 from PyQt5.QtCore import Qt, QPoint, QProcess, QCoreApplication, QTimer, QFileSystemWatcher, QFile, QThread, pyqtSignal, QObject
-import sys
 import typing
 # from Utils import utils, utilsHelper
 
@@ -54,14 +53,14 @@ def CutHDF_xy_run(loadfile,savefile,xyStretch):
         events = file['CD']['events']
         #filter out all events that are not in the xyStretch:
         events = events[(events['x'] >= xyStretch[0]) & (events['x'] <= xyStretch[1]) & (events['y'] >= xyStretch[2]) & (events['y'] <= xyStretch[3])]
-    
+
     print('Starting to save')
     #Store these events as a new hdf5:
     with h5py.File(savefile, mode='w') as file:
         events = file.create_dataset('CD/events', data=events, compression="gzip")
-    
+
     print('Saved')
-        
+
 def CutHDF_time_run(loadfile,savefile,timeStretch):
     timeStretch=eval(timeStretch)
     #ms to us
@@ -73,17 +72,16 @@ def CutHDF_time_run(loadfile,savefile,timeStretch):
         events = file['CD']['events']
         #filter out all events that are not in the timeStretch:
         events = events[(events['t'] >= timeStretch[0]) & (events['t'] <= timeStretch[1])]
-    
+
     print('Starting to save')
     #Store these events as a new hdf5:
     with h5py.File(savefile, mode='w') as file:
         events = file.create_dataset('CD/events', data=events, compression="gzip")
-    
+
     print('Saved')
-    
-    
+
+
 def readRawTimeStretch(filepath,metaVisionPath,buffer_size = 10e7, n_batches=5e7, timeStretchMs=[0,1000]):
-    import sys
     import logging
     #Function to read only part of the raw file, between time stretch [0] and [1]
     sys.path.append(metaVisionPath)
@@ -97,12 +95,12 @@ def readRawTimeStretch(filepath,metaVisionPath,buffer_size = 10e7, n_batches=5e7
     return events
 
 def raw_to_hdf_run(loadfile,savefile,parent,TimeMsPerStep):
-    
+
     import logging
-    
+
     totEvents = []
     logging.info('Starting raw to hdf5 conversion')
-    
+
     continuing = 1
     i=0 #counter
     while continuing:
@@ -120,12 +118,12 @@ def raw_to_hdf_run(loadfile,savefile,parent,TimeMsPerStep):
         except:
             logging.info('Finished (errored) at time '+str(TimeMsPerStep*i))
             continuing=0
-            
+
     logging.info('Starting to save')
     #Store these events as a new hdf5:
     with h5py.File(savefile, mode='w') as file:
         events = file.create_dataset('CD/events', data=totEvents, compression="gzip")
-    
+
     logging.info('Saved')
 
 def CutHDF_xy(parent,**kwargs):#(dataLocation,xyStretch=(-np.Inf,-np.Inf,np.Inf,np.Inf)):
@@ -140,12 +138,12 @@ def CutHDF_xy(parent,**kwargs):#(dataLocation,xyStretch=(-np.Inf,-np.Inf,np.Inf,
     window.addDescription("This function allows you to cut an hdf5 file between certain x,y coordinates. Please find the file location, specify the save location, and specify the XY boundaries (e.g. '(100,200,200,250)' to cut 100-200 in x, 200-250 in y)")
     loadfileloc = window.addFileLocation()
     savefileloc = window.addFileLocation(labelText="Save location:", textAddPrePeriod = "_xyCut")
-    
+
     xyStretchText = window.addTextEdit(labelText="XY boundaries:",preFilledText="(0,np.inf,0,np.inf)")
-    
+
     button = window.addButton("Run")
     button.clicked.connect(lambda: CutHDF_xy_run(loadfileloc.text(),savefileloc.text(),xyStretchText.text()))
-    
+
     window.show()
     pass
 
@@ -161,12 +159,12 @@ def CutHDF_time(parent,**kwargs):#(dataLocation,xyStretch=(-np.Inf,-np.Inf,np.In
     window.addDescription("This function allows you to cut an hdf5 file between certain time coordinates. Please find the file location, specify the save location, and specify the time boundaries (e.g. '(0,10000)' to cut 0-10000 ms)")
     loadfileloc = window.addFileLocation()
     savefileloc = window.addFileLocation(labelText="Save location:", textAddPrePeriod = "_timeCut")
-    
+
     timeStretchText = window.addTextEdit(labelText="Time boundaries:",preFilledText="(0,10000)")
-    
+
     button = window.addButton("Run")
     button.clicked.connect(lambda: CutHDF_time_run(loadfileloc.text(),savefileloc.text(),timeStretchText.text()))
-    
+
     window.show()
     pass
 
@@ -183,9 +181,9 @@ def RAW_to_HDF(parent,**kwargs):#(dataLocation,xyStretch=(-np.Inf,-np.Inf,np.Inf
     loadfileloc = window.addFileLocation()
     savefileloc = window.addFileLocation(labelText="Save location:", textAddPrePeriod = "_hdf",textPostPeriod = "hdf5")
     TimeMsPerStepText = window.addTextEdit(labelText="Time per step (ms):",preFilledText="120000")
-    
+
     button = window.addButton("Run")
     button.clicked.connect(lambda: raw_to_hdf_run(loadfileloc.text(),savefileloc.text(),parent,int(TimeMsPerStepText.text())))
-    
+
     window.show()
     pass
