@@ -8,10 +8,10 @@ def __function_metadata__():
             'display_name': 'Event Structural Ratio',
             'help_string': 'Calculate the event structural ratio for a given event dataset',
             'required_kwargs': [
-                {'name': 'X-res', 'type': int, 'default': 256, 'description': 'Sensor resolution (X-Axis) in microns.'},
-                {'name': 'Y-res', 'type': int, 'default': 256, 'description': 'Sensor resolution (Y-Axis) in microns.'},
-                {'name': 'M', 'type': int, 'default': 20000, 'description': 'Reference number of events for interpolation'},
-                {'name': 'N', 'type': int, 'default': 30000, 'description': 'Number of events in the dataset'}
+                {'name': 'x_res', 'type': int, 'default': 256, 'description': 'Sensor resolution (X-Axis) in microns.'},
+                {'name': 'y_res', 'type': int, 'default': 256, 'description': 'Sensor resolution (Y-Axis) in microns.'},
+                {'name': 'refN', 'type': int, 'default': 20000, 'description': 'Reference number of events for interpolation'},
+                {'name': 'count', 'type': int, 'default': 30000, 'description': 'Number of events in the dataset'}
             ],
             'optional_kwargs': [],
             # Removed empty dictionary kwargs which can cause issues with legacy utils functions
@@ -21,6 +21,11 @@ def __function_metadata__():
     }
 
 def run_analysis(ev, x_res, y_res, count=30000, refN=20000):
+    count = int(count)
+    refN = int(refN)
+    x_res = int(x_res)
+    y_res = int(y_res)
+
     if len(ev) < 2 * count: return 0.5
     score = np.zeros(int(len(ev)/count) - 1)
 
@@ -36,20 +41,41 @@ def run_analysis(ev, x_res, y_res, count=30000, refN=20000):
 
         score[i] = (cnt * (cnt-1) / (N + np.spacing(1)) / (N - 1 + np.spacing(1))).sum() * L
 
-    return score.mean()
+    img = projection_image(ev, [x_res, y_res])
+    plt.imshow(img)
+
+    return plt.gcf()    , score.mean()
 
 def count_distribution(ev, size, use_polarity=True):
     bins_, range_  = [size[0], size[1]], [[0, size[0]], [0, size[1]]]
 
     if use_polarity:
-        weights = (-1) ** (1 + ev[:, 3].astype(np.float_))
+        weights = (-1) ** (1 + ev['p'].astype(np.float64))
     else:
-        weights = (+1) ** (0 + ev[:, 3].astype(np.float_))
+        weights = (+1) ** (0 + ev['p'].astype(np.float64))
 
-    counts, *_ = np.histogram2d(ev[:, 1], ev[:, 2], weights=weights, bins=bins_, range=range_)
+    counts, *_ = np.histogram2d(ev['x'], ev['y'], weights=weights, bins=bins_, range=range_)
 
     return counts
 
+def projection_image(ev, size, max_count=1, flip=True):
+    # Filter out events that are outside the specified resolution
+    mask = (ev['x'] >= 0) & (ev['x'] < size[0]) & (ev['y'] >= 0) & (ev['y'] < size[1])
+    ev = ev[mask]
+
+    cnt = count_distribution(ev, size)
+    cnt = np.clip(np.abs(cnt), 0, max_count).astype(np.int64)
+
+    color = np.linspace(0, 255, max_count + 1)
+
+    img = np.ones((*size, 3)) * 255
+    img[ev['x'], ev['y'], 1 - ev['p']] = color[-1 - cnt[ev['x'], ev['y']]]
+    img[ev['x'], ev['y'], 2 - ev['p']] = color[-1 - cnt[ev['x'], ev['y']]]
+
+    if flip:
+        img = np.flip(np.rot90(img, 1), axis=0).astype(np.uint8)
+
+    return img
 
 if __name__ == '__main__':
     
@@ -59,7 +85,5 @@ if __name__ == '__main__':
     count = 20000
     refN = 20000
 
-    results = run_analysis(events, x_res, y_res, count, refN)
+    graph, results = run_analysis(events, x_res, y_res, count, refN)
 
-    # plt.show()
-    print(results)

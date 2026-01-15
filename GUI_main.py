@@ -285,7 +285,7 @@ class MyGUI(QMainWindow):
             # Compile regex patterns
             compiled_patterns = [re.compile(pattern) for pattern in patterns]
             for pattern in compiled_patterns:
-                if pattern.match(message):
+                if pattern.match(str(message)):
                     return False
             return True
 
