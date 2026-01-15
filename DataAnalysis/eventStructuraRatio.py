@@ -1,4 +1,7 @@
 
+import numpy as np
+import matplotlib.pyplot as plt
+
 
 def __function_metadata__():
     return {
@@ -6,10 +9,10 @@ def __function_metadata__():
             'display_name': 'Event Structural Ratio',
             'help_string': 'Calculate the event structural ratio for a given event dataset',
             'required_kwargs': [
-                {'name': 'Sensor Resolution x', 'type': float, 'default': 1.0, 'description': 'Sensor resolution (X-Axis) in microns.'},
-                {'name': 'Sensor Resolution y', 'type': float, 'default': 1.0, 'description': 'Sensor resolution (Y-Axis) in microns.'},
-                {'name': 'M', 'type': float, 'default': 1.0, 'description': 'Reference number of events for interpolation'},
-                {'name': 'N', 'type': float, 'default': 1.0, 'description': 'Number of events in the dataset'}
+                {'name': 'X-res', 'type': float, 'default': 1.0, 'description': 'Sensor resolution (X-Axis) in microns.'},
+                {'name': 'Y-res', 'type': float, 'default': 1.0, 'description': 'Sensor resolution (Y-Axis) in microns.'},
+                {'name': 'M', 'type': float, 'default': 20000, 'description': 'Reference number of events for interpolation'},
+                {'name': 'N', 'type': float, 'default': 30000, 'description': 'Number of events in the dataset'}
             ],
             'optional_kwargs': [],
             # Removed empty dictionary kwargs which can cause issues with legacy utils functions
@@ -18,7 +21,7 @@ def __function_metadata__():
         }
     }
 
-def calc_event_structural_ratio(ev, size, count=30000, refN=20000):
+def run_analysis(ev, size, count=30000, refN=20000):
     if len(ev) < 2 * count: return 0.5
     score = np.zeros(int(len(ev)/count) - 1)
 
