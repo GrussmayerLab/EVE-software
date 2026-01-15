@@ -1599,7 +1599,7 @@ class MyGUI(QMainWindow):
 
             return eventsDict
 
-    def RawToNpy(self,filepath,buffer_size = 5e9, n_batches=5e9):
+    def RawToNpy(self,filepath,buffer_size = 1e8, n_batches=1e7):
         if(os.path.exists(filepath[:-4]+'.npy')):
             events = np.load(filepath[:-4]+'.npy')
             logging.info('NPY file from RAW was already present, loading this instead of RAW!')
@@ -5541,7 +5541,23 @@ class DataAnalysisWidget(QWidget):
 
         # Construct the eval string
         
-        partialString = "data=self.parent.data['FittingResult'][0], settings=self.parent.globalSettings"
+        # Load the data
+        dataLocation = self.parent.dataLocationInput.text()
+        eventsDict = self.parent.loadRawData(dataLocation)
+        
+        if eventsDict is None or len(eventsDict) == 0:
+            logging.error("Could not load data for analysis.")
+            return
+
+        # Combine events if multiple chunks (e.g. split polarity) are returned
+        if len(eventsDict) > 1:
+             events = np.vstack(eventsDict)
+             # Sort by timestamp (column 0)
+             events = events[events[:, 0].argsort()]
+        else:
+             events = eventsDict[0]
+        
+        partialString = "ev=events"
         
         evalText = utils.getEvalTextFromGUIFunction(
             methodName, 
