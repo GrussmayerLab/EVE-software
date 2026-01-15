@@ -1163,7 +1163,24 @@ class MyGUI(QMainWindow):
         """
         tab_layout = QGridLayout()
         self.tab_dataAnalysis.setLayout(tab_layout)
+        #Dataset location and searching Grid Layout
+        self.datasetLocation_layout = QGridLayout()
+        tab_layout.addLayout(self.datasetLocation_layout, 0, 0)
 
+        # Add a label:
+        self.datasetLocation_label = QLabel("Dataset location:")
+        self.datasetLocation_layout.addWidget(self.datasetLocation_label, 0, 0,2,1)
+        # Create the input field
+        self.dataLocationInput = QLineEdit()
+        self.dataLocationInput.setObjectName("processing_dataLocationInput")
+        self.datasetLocation_layout.layout().addWidget(self.dataLocationInput, 0, 1,2,1)
+        # Create the search buttons
+        self.datasetSearchButton = QPushButton("File...")
+        self.datasetSearchButton.clicked.connect(self.datasetSearchButtonClicked)
+        self.datasetLocation_layout.layout().addWidget(self.datasetSearchButton, 0, 2)
+        self.datasetFolderButton = QPushButton("Folder...")
+        self.datasetFolderButton.clicked.connect(self.datasetFolderButtonClicked)
+        self.datasetLocation_layout.layout().addWidget(self.datasetFolderButton, 1, 2)
         self.dataAnalysistab_widget = DataAnalysisWidget(self)
         self.tab_dataAnalysis.layout().addWidget(self.dataAnalysistab_widget)
 
