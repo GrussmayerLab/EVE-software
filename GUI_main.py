@@ -59,6 +59,7 @@ try:
     from eve_smlm.Visualisation import *
     from eve_smlm.PostProcessing import *
     from eve_smlm.CandidatePreview import *
+    from eve_smlm.DataAnalysis import *
     from eve_smlm.Utils import *
 
     #Obtain the helperfunctions
@@ -74,6 +75,7 @@ except ImportError:
     from Visualisation import *
     from PostProcessing import *
     from CandidatePreview import *
+    from DataAnalysis import *
     from Utils import *
 
     #Obtain the helperfunctions
@@ -216,6 +218,8 @@ class MyGUI(QMainWindow):
         self.mainTabWidget.addTab(self.tab_previewVis, "Preview run")
         self.tab_canPreview = QWidget()
         self.mainTabWidget.addTab(self.tab_canPreview, "Candidate preview")
+        self.tab_dataAnalysis = QWidget()
+        self.mainTabWidget.addTab(self.tab_dataAnalysis, "Data Analysis")
 
         # Set up the tabs
         self.setup_tab('Processing')
@@ -225,6 +229,7 @@ class MyGUI(QMainWindow):
         self.setup_tab('Run info')
         self.setup_tab('Preview visualisation')
         self.setup_tab('Candidate preview')
+        self.setup_tab('Data Analysis')
 
         #Loop through all combobox states briefly to initialise them (and hide them)
         self.set_all_combobox_states()
@@ -471,7 +476,8 @@ class MyGUI(QMainWindow):
             'LocalizationList': self.setup_loclistTab,
             'Run info': self.setup_logFileTab,
             'Preview visualisation': self.setup_previewTab,
-            'Candidate preview': self.setup_canPreviewTab
+            'Candidate preview': self.setup_canPreviewTab,
+            'Data Analysis': self.setup_dataAnalysisTab
         }
         #Run the setup of this tab
         setup_func = tab_mapping.get(tab_name)
@@ -1150,6 +1156,16 @@ class MyGUI(QMainWindow):
 
         self.postProcessingtab_widget = PostProcessing(self)
         self.tab_postProcessing.layout().addWidget(self.postProcessingtab_widget)
+
+    def setup_dataAnalysisTab(self):
+        """
+        Function that set up the data analysis tab
+        """
+        tab_layout = QGridLayout()
+        self.tab_dataAnalysis.setLayout(tab_layout)
+
+        self.dataAnalysistab_widget = DataAnalysisWidget(self)
+        self.tab_dataAnalysis.layout().addWidget(self.dataAnalysistab_widget)
 
     def setup_logFileTab(self):
         """
@@ -5372,3 +5388,215 @@ class TableModel(QAbstractTableModel):
     def getColumn(self, col):
         """Get column data"""
         return self.table_data[col]
+
+class DataAnalysisWidget(QWidget):
+    """
+    Class that handles the Data Analysis tab.
+    Allows dynamic loading of analysis scripts, execution, visualization, and saving.
+    """
+    def __init__(self, parent):
+        self.parent = parent
+        super().__init__()
+        
+        # Main layout
+        self.mainlayout = QVBoxLayout()
+        self.setLayout(self.mainlayout)
+        
+        # --- Control Panel (Analysis Settings) ---
+        self.settingsGroupbox = QGroupBox("Analysis Settings")
+        self.settingsGroupbox.setLayout(QGridLayout())
+        self.settingsGroupbox.setObjectName("DataAnalysisSettingsGroupboxKEEP")
+        
+        # Dropdown for function selection
+        self.analysisDropdown = QComboBox(self)
+        self.analysisDropdown.setMaxVisibleItems(30)
+        self.analysisDropdown.setObjectName("DataAnalysisDropdownKEEP")
+        
+        # Get options dynamically
+        options = utils.functionNamesFromDir('DataAnalysis')
+        self.displaynames, self.functionNameToDisplayNameMapping = utils.displayNamesFromFunctionNames(options, '')
+        self.analysisDropdown.addItems(self.displaynames)
+        
+        # Connect dropdown change to dynamic layout update
+        self.analysisDropdown.currentTextChanged.connect(
+            lambda text: utils.changeLayout_choice(
+                self.settingsGroupbox.layout(),
+                "DataAnalysisDropdownKEEP",
+                self.functionNameToDisplayNameMapping,
+                parent=self,
+                ignorePolarity=True
+            )
+        )
+        
+        # Add dropdown to layout
+        self.settingsGroupbox.layout().addWidget(self.analysisDropdown, 0, 0, 1, 6)
+        
+        # Initial layout update
+        utils.changeLayout_choice(
+            self.settingsGroupbox.layout(),
+            "DataAnalysisDropdownKEEP",
+            self.functionNameToDisplayNameMapping,
+            parent=self,
+            ignorePolarity=True
+        )
+        
+        # Analyze Button
+        self.analyzeButton = QPushButton("Analyze")
+        self.analyzeButton.setObjectName("DataAnalysisRunButtonKEEP")
+        self.analyzeButton.clicked.connect(self.run_analysis_callback)
+        self.settingsGroupbox.layout().addWidget(self.analyzeButton, 99, 0, 1, 6)
+        
+        self.mainlayout.addWidget(self.settingsGroupbox)
+        
+        # --- Results Area ---
+        # Splitter for visualization and text results
+        self.splitter = QtWidgets.QSplitter(Qt.Vertical)
+        self.mainlayout.addWidget(self.splitter)
+        
+        # Plot Area
+        self.plotWidget = QWidget()
+        self.plotLayout = QVBoxLayout()
+        self.plotWidget.setLayout(self.plotLayout)
+        
+        self.figure = plt.figure()
+        self.canvas = FigureCanvas(self.figure)
+        self.toolbar = NavigationToolbar(self.canvas, self)
+        
+        self.plotLayout.addWidget(self.toolbar)
+        self.plotLayout.addWidget(self.canvas)
+        self.splitter.addWidget(self.plotWidget)
+        
+        # Results Text Area
+        self.resultsText = QTextEdit()
+        self.resultsText.setReadOnly(True)
+        self.splitter.addWidget(self.resultsText)
+        
+        # Save Button
+        self.saveButton = QPushButton("Save Results")
+        self.saveButton.clicked.connect(self.save_results_callback)
+        self.mainlayout.addWidget(self.saveButton)
+        
+        # Data storage
+        self.current_results = None
+        self.current_figure = None
+
+    def run_analysis_callback(self):
+        logging.info("Data Analysis button pressed")
+        
+        # Construct function call string
+        # We need to construct the args. Primary args: data, settings
+        # The dynamic inputs are handled by utils.getEvalTextFromGUIFunction
+        
+        # We need to find the function name selected
+        methodName = ""
+        text = self.analysisDropdown.currentText()
+        for i in range(len(self.functionNameToDisplayNameMapping)):
+            if self.functionNameToDisplayNameMapping[i][0] == text:
+                methodName = self.functionNameToDisplayNameMapping[i][1]
+                break
+        
+        if not methodName:
+            logging.error("No analysis method selected.")
+            return
+
+        # Prepare kwargs extraction similar to PostProcessing
+        # We implementation a simplified version of getPostProcessingFunctionEvalText here
+        # or use utils.getEvalTextFromGUIFunction directly if we can gather the inputs.
+        
+        methodKwargNames = []
+        methodKwargValues = []
+        
+        # Helper to find inputs in the groupbox
+        # We iterate over children of the groupbox layout
+        layout = self.settingsGroupbox.layout()
+        if layout:
+            for i in range(layout.count()):
+                item = layout.itemAt(i)
+                if item.widget():
+                    widget = item.widget()
+                    self._extract_widget_value(widget, methodName, methodKwargNames, methodKwargValues)
+                elif item.layout(): # Sometimes inputs are in sub-layouts (like file inputs)
+                    sublayout = item.layout()
+                    for j in range(sublayout.count()):
+                         subitem = sublayout.itemAt(j)
+                         if subitem.widget():
+                             self._extract_widget_value(subitem.widget(), methodName, methodKwargNames, methodKwargValues)
+
+        # Construct the eval string
+        
+        partialString = "data=self.parent.data['FittingResult'][0], settings=self.parent.globalSettings"
+        
+        evalText = utils.getEvalTextFromGUIFunction(
+            methodName, 
+            methodKwargNames, 
+            methodKwargValues, 
+            partialStringStart=partialString
+        )
+        
+        logging.debug(f"Data Analysis Eval: {evalText}")
+        
+        if evalText:
+            try:
+                # Execute
+                result = eval(evalText)
+                
+                # Unpack results: (figure, results_dict)
+                if isinstance(result, tuple) and len(result) == 2:
+                    self.current_figure = result[0]
+                    self.current_results = result[1]
+                    
+                    # Update Plot
+                    self.plotLayout.removeWidget(self.canvas)
+                    self.plotLayout.removeWidget(self.toolbar)
+                    self.canvas.close()
+                    self.toolbar.close()
+                    
+                    self.canvas = FigureCanvas(self.current_figure)
+                    self.toolbar = NavigationToolbar(self.canvas, self)
+                    self.plotLayout.addWidget(self.toolbar)
+                    self.plotLayout.addWidget(self.canvas)
+                    self.canvas.draw()
+                    
+                    # Update Results Text
+                    self.resultsText.setText(json.dumps(self.current_results, indent=4))
+                    
+                else:
+                    logging.error("Analysis script must return (figure, results_dict)")
+                    self.resultsText.setText("Error: Analysis script must return (figure, results_dict)")
+
+            except Exception as e:
+                logging.error(f"Analysis failed: {e}")
+                logging.error(traceback.format_exc())
+                QMessageBox.critical(self, "Analysis Error", str(e))
+
+    def _extract_widget_value(self, widget, methodName, names, values):
+        if "LineEdit" in widget.objectName() and widget.isVisible():
+            parts = widget.objectName().split('#')
+            if len(parts) >= 3 and parts[1] == methodName:
+                names.append(parts[2])
+                values.append(widget.text().replace('\\', '/'))
+        elif "ComboBox" in widget.objectName() and widget.isVisible() and "Dropdown" not in widget.objectName():
+             parts = widget.objectName().split('#')
+             if len(parts) >= 3 and parts[1] == methodName:
+                names.append(parts[2])
+                values.append(widget.currentText())
+
+    def save_results_callback(self):
+        if self.current_results is None:
+            return
+
+        folder = QFileDialog.getExistingDirectory(self, "Select Directory to Save Results")
+        if folder:
+            try:
+                # Save JSON
+                with open(os.path.join(folder, "analysis_results.json"), 'w') as f:
+                    json.dump(self.current_results, f, indent=4)
+                
+                # Save Figure
+                if self.current_figure:
+                    self.current_figure.savefig(os.path.join(folder, "analysis_plot.png"))
+                    self.current_figure.savefig(os.path.join(folder, "analysis_plot.pdf"))
+                
+                QMessageBox.information(self, "Success", "Results saved successfully.")
+            except Exception as e:
+                QMessageBox.critical(self, "Save Error", str(e))
