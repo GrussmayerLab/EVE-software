@@ -8,8 +8,8 @@ def __function_metadata__():
             'display_name': '2D Projection',
             'help_string': 'Generate a 2D projection plot of the data events.',
             'required_kwargs': [
-                {'name': 'Positive Events', 'type': bool, 'default': True, 'description': 'Include positive polarity events.'},
-                {'name': 'Negative Events', 'type': bool, 'default': True, 'description': 'Include negative polarity events.'},
+                {'name': 'positive_events', 'type': bool, 'default': True, 'description': 'Include positive polarity events.'},
+                {'name': 'negative_events', 'type': bool, 'default': True, 'description': 'Include negative polarity events.'},
                 # {'name': 'Coloring', 'type': str, 'default': 'By Polarity', 'description': 'Coloring scheme for the plot (e.g., By Polarity, By Time).'},
             ],
             'optional_kwargs': [],
@@ -25,15 +25,21 @@ def run_analysis(ev, positive_events=True, negative_events=True, plot_type='accu
         raise ValueError("At least one of Positive Events or Negative Events must be True.")
 
     # Filter events based on polarity
-    # ev format: [ts, x, y, p]
+    # ev format: structured array with fields 'x', 'y', 'p', 't'
     if positive_events and not negative_events:
-        ev = ev[ev[:, 3] > 0]
+        ev = ev[ev['p'] > 0]
     elif negative_events and not positive_events:
-        ev = ev[ev[:, 3] < 0]
+        ev = ev[ev['p'] <= 0]
+
+    if len(ev) == 0:
+        plt.figure(figsize=(10, 8))
+        plt.text(0.5, 0.5, 'No events found', ha='center', va='center')
+        # We need to return the figure and a result dict
+        return plt.gcf(), {'status': 'No events'}
 
     # Determine sensor resolution
-    width = int(np.max(ev[:, 1])) + 1
-    height = int(np.max(ev[:, 2])) + 1
+    width = int(np.max(ev['x'])) + 1
+    height = int(np.max(ev['y'])) + 1
 
     plt.figure(figsize=(10, 8))
 
@@ -41,14 +47,22 @@ def run_analysis(ev, positive_events=True, negative_events=True, plot_type='accu
         # Create a 2D histogram to count events per pixel
         # bins correspond to pixel coordinates
         img, x_edges, y_edges = np.histogram2d(
-            ev[:, 1], ev[:, 2],
+            ev['x'], ev['y'],
             bins=[width, height],
             range=[[0, width], [0, height]]
         )
 
-        # We transpose the image because histogram2d uses (x, y)
-        # but imshow expects (row, col) which is (y, x)
-        plt.imshow(img.T, origin='lower', cmap='hot', interpolation='nearest')
+        # Transpose image
+        img_T = img.T
+
+        # Calculate robust limits for visualization (1st and 99th percentile of non-zero data)
+        if np.any(img_T > 0):
+            vmin = np.percentile(img_T[img_T > 0], 1)
+            vmax = np.percentile(img_T[img_T > 0], 99)
+        else:
+            vmin, vmax = 0, 1
+            
+        plt.imshow(img_T, origin='lower', cmap='hot', interpolation='nearest', vmin=vmin, vmax=vmax)
         plt.colorbar(label='Event Count (Density)')
         plt.title('2D Accumulation (Density Map)')
 
@@ -57,7 +71,7 @@ def run_analysis(ev, positive_events=True, negative_events=True, plot_type='accu
         img = np.zeros((height, width))
         # Fill the array with timestamps; later events overwrite earlier ones
         for e in ev:
-            img[int(e[2]), int(e[1])] = e[0]
+            img[int(e['y']), int(e['x'])] = e['t']
 
         plt.imshow(img, origin='lower', cmap='viridis', interpolation='nearest')
         plt.colorbar(label='Timestamp (Recency)')
@@ -65,7 +79,9 @@ def run_analysis(ev, positive_events=True, negative_events=True, plot_type='accu
 
     plt.xlabel('X Position')
     plt.ylabel('Y Position')
-    plt.show()
+    # plt.show()
+
+    return plt.gcf(), {'status': 'Success'}
 
 
 if __name__ == '__main__':
