@@ -25,7 +25,12 @@ def run_analysis(ev, x_res, y_res, count=30000, refN=20000):
     refN = int(refN)
     x_res = int(x_res)
     y_res = int(y_res)
-
+    
+    # Auto-adjust resolution if events are out of bounds
+    if len(ev) > 0:
+        x_res = max(x_res, int(ev['x'].max()) + 1)
+        y_res = max(y_res, int(ev['y'].max()) + 1)
+    print(ev.shape)
     if len(ev) < 2 * count: return 0.5
     score = np.zeros(int(len(ev)/count) - 1)
 
