@@ -10,7 +10,8 @@ def __function_metadata__():
             'required_kwargs': [
                 {'name': 'positive_events', 'type': bool, 'default': True, 'description': 'Include positive polarity events.'},
                 {'name': 'negative_events', 'type': bool, 'default': True, 'description': 'Include negative polarity events.'},
-                # {'name': 'Coloring', 'type': str, 'default': 'By Polarity', 'description': 'Coloring scheme for the plot (e.g., By Polarity, By Time).'},
+                # {'name': 'plot_type', 'type': str, 'default': 'accumulation', 'description': 'Type of plot to generate (accumulation or time_surface).'},
+                {'name': 'min_accumulation', 'type': int, 'default': 45, 'description': 'Minimum number of events to consider for accumulation.'},
             ],
             'optional_kwargs': [],
             # Removed empty dictionary kwargs which can cause issues with legacy utils functions
@@ -20,10 +21,10 @@ def __function_metadata__():
     }
 
 
-def run_analysis(ev, positive_events=True, negative_events=True, plot_type='accumulation'):
+def run_analysis(ev, positive_events=True, negative_events=True, min_accumulation=1, plot_type='accumulation'):
     if not positive_events and not negative_events:
         raise ValueError("At least one of Positive Events or Negative Events must be True.")
-
+    min_accumulation = float(min_accumulation)
     # Filter events based on polarity
     # ev format: structured array with fields 'x', 'y', 'p', 't'
     if positive_events and not negative_events:
@@ -61,8 +62,8 @@ def run_analysis(ev, positive_events=True, negative_events=True, plot_type='accu
             vmax = np.percentile(img_T[img_T > 0], 99)
         else:
             vmin, vmax = 0, 1
-            
-        plt.imshow(img_T, origin='lower', cmap='hot', interpolation='nearest', vmin=vmin, vmax=vmax)
+        img[img < min_accumulation] = 0
+        plt.imshow(img, origin='lower', cmap='hot', interpolation='nearest', vmin=vmin, vmax=vmax)
         plt.colorbar(label='Event Count (Density)')
         plt.title('2D Accumulation (Density Map)')
 
@@ -81,7 +82,8 @@ def run_analysis(ev, positive_events=True, negative_events=True, plot_type='accu
     plt.ylabel('Y Position')
     # plt.show()
 
-    return plt.gcf(), {'status': 'Success'}
+
+    return plt.gcf(), {'Status': 'Success', 'min_accumulation': min_accumulation, 'plot_type': plot_type, 'positive_events': positive_events, 'negative_events': negative_events}
 
 
 if __name__ == '__main__':
