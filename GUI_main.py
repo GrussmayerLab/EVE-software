@@ -5456,6 +5456,11 @@ class DataAnalysisWidget(QWidget):
             parent=self,
             ignorePolarity=True
         )
+
+        # Batch Mode Checkbox
+        self.batchModeCheckbox = QCheckBox("Batch Mode (Recursive Folder)")
+        self.batchModeCheckbox.setObjectName("DataAnalysisBatchModeCheckboxKEEP")
+        self.settingsGroupbox.layout().addWidget(self.batchModeCheckbox, 1, 0, 1, 6)
         
         # Analyze Button
         self.analyzeButton = QPushButton("Analyze")
@@ -5499,6 +5504,19 @@ class DataAnalysisWidget(QWidget):
 
     def run_analysis_callback(self):
         logging.info("Data Analysis button pressed")
+
+        # Check for Batch Mode
+        if self.batchModeCheckbox.isChecked():
+            # Validate directory
+            dataLocation = self.parent.dataLocationInput.text()
+            if not os.path.isdir(dataLocation):
+                 logging.error(f"Batch mode requires a directory input. Got: {dataLocation}")
+                 QMessageBox.critical(self, "Input Error", "Batch mode requires a directory input. Please select a folder.")
+                 return
+            
+            self._run_batch_analysis(dataLocation)
+            return
+
         
         # Construct function call string
         # We need to construct the args. Primary args: data, settings
@@ -5601,6 +5619,155 @@ class DataAnalysisWidget(QWidget):
                 logging.error(f"Analysis failed: {e}")
                 logging.error(traceback.format_exc())
                 QMessageBox.critical(self, "Analysis Error", str(e))
+
+    def _run_batch_analysis(self, data_path):
+        """
+        Helper to run analysis on all supported files in a directory recursively.
+        """
+        
+        print(f"DEBUG: _run_batch_analysis called with {data_path}")
+
+        # 1. Search for files
+        extensions = ['*.hdf5', '*.npy', '*.raw']
+        files = []
+        for ext in extensions:
+            found = glob.glob(os.path.join(data_path, '**', ext), recursive=True)
+            print(f"DEBUG: Searching {ext} in {data_path} -> Found {len(found)}")
+            files.extend(found)
+        
+        print(f"DEBUG: Total files found: {files}")
+        
+        if not files:
+            QMessageBox.information(self, "Batch Analysis", "No supported data files found in the directory.")
+            print("DEBUG: No files found, returning.")
+            return
+
+        # 2. Setup Results Directory
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        results_dir = os.path.join(data_path, f"Analysis_Results_{timestamp}")
+        os.makedirs(results_dir, exist_ok=True)
+        print(f"DEBUG: Created results dir: {results_dir}")
+        
+        # Determine Method and Args (Shared across all files)
+        methodName = ""
+        text = self.analysisDropdown.currentText()
+        print(f"DEBUG: Dropdown text: {text}")
+        for i in range(len(self.functionNameToDisplayNameMapping)):
+            if self.functionNameToDisplayNameMapping[i][0] == text:
+                methodName = self.functionNameToDisplayNameMapping[i][1]
+                break
+        print(f"DEBUG: Resolved methodName: {methodName}")
+        
+        if not methodName:
+            logging.error("No analysis method selected.")
+            return
+
+        methodKwargNames = []
+        methodKwargValues = []
+        layout = self.settingsGroupbox.layout()
+        if layout:
+            for i in range(layout.count()):
+                item = layout.itemAt(i)
+                if item.widget():
+                   self._extract_widget_value(item.widget(), methodName, methodKwargNames, methodKwargValues)
+                elif item.layout():
+                     sublayout = item.layout()
+                     for j in range(sublayout.count()):
+                          subitem = sublayout.itemAt(j)
+                          if subitem.widget():
+                              self._extract_widget_value(subitem.widget(), methodName, methodKwargNames, methodKwargValues)
+
+        
+        # 3. Iterate and Analyze
+        aggregated_results = []
+        
+        # Progress Bar? For now just logging
+        logging.info(f"Starting batch analysis on {len(files)} files...")
+        self.resultsText.setText(f"Starting batch analysis on {len(files)} files...\n")
+        
+        for file_path in files:
+            try:
+                filename = os.path.basename(file_path)
+                logging.info(f"Analyzing {filename}...")
+                
+                # Load Data
+                # Note: parent.loadRawData relies on logic that might be tied to 'self' context in a tricky way
+                # But looking at usage, it takes 'dataLocation'.
+                # We need to make sure using parent.loadRawData works okay in loop.
+                # Use a try-except block strictly around this to avoid crashing entire batch
+                
+                eventsDict = self.parent.loadRawData(file_path)
+                
+                if eventsDict is None or len(eventsDict) == 0:
+                     logging.warning(f"Empty or invalid data for {filename}, skipping.")
+                     continue
+                
+                if len(eventsDict) > 1:
+                     events = np.vstack(eventsDict)
+                     events = events[events[:, 0].argsort()]
+                else:
+                     events = eventsDict[0]
+
+                # Prepare Eval
+                partialString = "ev=events"
+                evalText = utils.getEvalTextFromGUIFunction(
+                    methodName, 
+                    methodKwargNames, 
+                    methodKwargValues, 
+                    partialStringStart=partialString
+                )
+                
+                # Execute
+                result = eval(evalText)
+                
+                if isinstance(result, tuple) and len(result) == 2:
+                    current_fig = result[0]
+                    current_res = result[1]
+                    
+                    # Save Figure
+                    fig_name = f"{os.path.splitext(filename)[0]}_analysis.png"
+                    fig_path = os.path.join(results_dir, fig_name)
+                    current_fig.savefig(fig_path)
+                    
+                    # Sometimes matplotlib holds memory, so clear
+                    current_fig.clf()
+                    plt.close(current_fig)
+
+                    # Collect Results
+                    # Flatten dict if necessary, but assuming simple dict for DataFrame
+                    # Add filename to results
+                    if isinstance(current_res, dict):
+                        row = current_res.copy()
+                        row['filename'] = filename
+                        aggregated_results.append(row)
+                    elif isinstance(current_res, (int, float, str)):
+                         aggregated_results.append({'filename': filename, 'result': current_res})
+                    else:
+                         logging.warning(f"Unknown result format for {filename}: {type(current_res)}")
+                
+                else:
+                    logging.warning(f"Script returned invalid format for {filename}")
+
+            except Exception as e:
+                logging.error(f"Failed to analyze {filename}: {e}")
+                self.resultsText.append(f"Failed: {filename} ({str(e)})")
+                continue
+        
+        # 4. Finalize
+        if aggregated_results:
+            df = pd.DataFrame(aggregated_results)
+            # Reorder columns to put filename first if present
+            cols = ['filename'] + [c for c in df.columns if c != 'filename']
+            df = df[cols]
+            
+            csv_path = os.path.join(results_dir, "summary_comparison.csv")
+            df.to_csv(csv_path, index=False)
+            
+            summary_msg = f"Batch Analysis Complete.\nProcessed {len(aggregated_results)}/{len(files)} files.\nResults saved to: {results_dir}\n\nSummary:\n{df.to_markdown()}"
+            self.resultsText.setText(summary_msg)
+            logging.info(f"Batch analysis complete. Results saved at {results_dir}")
+        else:
+            self.resultsText.append("\nBatch analysis finished with no successful results.")
 
     def _extract_widget_value(self, widget, methodName, names, values):
         if "LineEdit" in widget.objectName() and widget.isVisible():
