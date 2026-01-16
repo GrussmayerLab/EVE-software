@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-import cv2
 from scipy.integrate import trapezoid
+from scipy.ndimage import gaussian_filter, sobel
 
 def __function_metadata__():
     return {
@@ -30,7 +30,7 @@ def run_analysis(ev, x_res, y_res, min_interval=2000, max_interval=200001, step_
     y_res = int(y_res)
 
     # find number of events
-    count = ev.shape[0]
+    count=30000
 
     # Auto-adjust resolution if events are out of bounds
     if len(ev) > 0:
@@ -51,10 +51,10 @@ def run_analysis(ev, x_res, y_res, min_interval=2000, max_interval=200001, step_
             'rms_contrast': rms_contrast
         })
     results = pd.DataFrame(rows)
-
+    print(results)
     plot, area = plot_contrast_statistics(results, min_value, max_value)
 
-    return plt.gcf(), area
+    return plot, {'area': area}
 
 
 def create_accumulation_images(events, width, height, interval):
@@ -106,30 +106,26 @@ def apply_gaussian_blur(image, kernel_size=5, sigma=2):
     Returns:
         numpy.ndarray: Blurred image
     """
-    return cv2.GaussianBlur(image, (kernel_size, kernel_size), sigma)
+    return gaussian_filter(image.astype(float), sigma=sigma)
 
 
 def calculate_contrast(image):
     """
-    Calculate image contrast using Sobel operators.
-
-    Args:
-        image (numpy.ndarray): Input image (grayscale or BGR)
-
-    Returns:
-        float: Standard deviation of gradient magnitudes
+    Calculate image contrast using SciPy Sobel operators.
     """
-    if len(image.shape) == 3 and image.shape[2] == 3:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    else:
-        gray = image
+    # If image is 3D (RGB), convert to grayscale (Luminance formula)
+    if len(image.shape) == 3:
+        image = np.dot(image[..., :3], [0.2989, 0.5870, 0.1140])
 
-    grad_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
-    grad_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
-    magnitude = np.sqrt(grad_x ** 2 + grad_y ** 2)
-    contrast = np.std(magnitude)
+    # Calculate gradients
+    grad_x = sobel(image, axis=1)
+    grad_y = sobel(image, axis=0)
 
-    return contrast
+    # Gradient magnitude
+    magnitude = np.hypot(grad_x, grad_y)
+
+    # Contrast is the standard deviation of the magnitude
+    return np.std(magnitude)
 
 
 def compute_statistics(contrasts):
@@ -184,16 +180,16 @@ def plot_contrast_statistics(results, min_value, max_value):
         max_value (float): Maximum x value for area calculation
     """
     plt.figure(figsize=(10, 6))
-    plt.plot(results['interval'], results['mean_contrast'], label='Mean Contrast',
+    plt.plot(results['interval'], results['mean_contrast'], label='mean_contrast',
               marker='o', markersize=1)
-    area = calculate_area_under_curve(results,'Mean Contrast', 'Interval (us)',
+    area = calculate_area_under_curve(results,'mean_contrast', 'interval',
                                       min_value, max_value)
 
 
 
     plt.title('Contrast Statistics Over Different Intervals')
-    plt.xlabel('Interval (us)')
-    plt.ylabel('Contrast Value')
+    plt.xlabel('interval')
+    plt.ylabel('contrast')
     plt.legend()
     plt.grid(True)
     return plt.gcf(), area

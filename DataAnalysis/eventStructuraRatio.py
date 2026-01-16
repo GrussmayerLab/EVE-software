@@ -23,14 +23,15 @@ def run_analysis(ev, x_res, y_res, count=30000, refN=20000):
     x_res = int(x_res)
     y_res = int(y_res)
 
-
-    count = ev.shape[0]
     # Auto-adjust resolution if events are out of bounds
     if len(ev) > 0:
         x_res = max(x_res, int(ev['x'].max()) + 1)
         y_res = max(y_res, int(ev['y'].max()) + 1)
     print(ev.shape)
-    if len(ev) < 2 * count: return 0.5
+    if len(ev) < 2 * count: 
+        fig = plt.figure()
+        plt.text(0.5, 0.5, f"Not enough events: {len(ev)} < {2*count}", ha='center', va='center')
+        return fig, {'score': 0.5, 'warning': f'Not enough events: {len(ev)} < {2*count}'}
     score = np.zeros(int(len(ev)/count) - 1)
 
     for i in range(0, len(score)):
@@ -48,7 +49,7 @@ def run_analysis(ev, x_res, y_res, count=30000, refN=20000):
     img = projection_image(ev, [x_res, y_res])
     plt.imshow(img)
 
-    return plt.gcf(), score.mean()
+    return plt.gcf(), {'score': float(score.mean())}
 
 def count_distribution(ev, size, use_polarity=True):
     bins_, range_  = [size[0], size[1]], [[0, size[0]], [0, size[1]]]

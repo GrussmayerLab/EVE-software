@@ -5590,7 +5590,7 @@ class DataAnalysisWidget(QWidget):
             try:
                 # Execute
                 result = eval(evalText)
-                
+                print(f"DEBUG: Analysis result type: {type(result)}")
                 # Unpack results: (figure, results_dict)
                 if isinstance(result, tuple) and len(result) == 2:
                     self.current_figure = result[0]
