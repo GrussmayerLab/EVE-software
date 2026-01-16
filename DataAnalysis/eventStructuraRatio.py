@@ -14,9 +14,6 @@ def __function_metadata__():
                 {'name': 'count', 'type': int, 'default': 30000, 'description': 'Number of events in the dataset'}
             ],
             'optional_kwargs': [],
-            # Removed empty dictionary kwargs which can cause issues with legacy utils functions
-            #'dist_kwarg': {},
-            #'time_kwarg': {}
         }
     }
 
@@ -25,7 +22,9 @@ def run_analysis(ev, x_res, y_res, count=30000, refN=20000):
     refN = int(refN)
     x_res = int(x_res)
     y_res = int(y_res)
-    
+
+
+    count = ev.shape[0]
     # Auto-adjust resolution if events are out of bounds
     if len(ev) > 0:
         x_res = max(x_res, int(ev['x'].max()) + 1)
@@ -49,7 +48,7 @@ def run_analysis(ev, x_res, y_res, count=30000, refN=20000):
     img = projection_image(ev, [x_res, y_res])
     plt.imshow(img)
 
-    return plt.gcf()    , score.mean()
+    return plt.gcf(), score.mean()
 
 def count_distribution(ev, size, use_polarity=True):
     bins_, range_  = [size[0], size[1]], [[0, size[0]], [0, size[1]]]
