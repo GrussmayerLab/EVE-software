@@ -6,6 +6,19 @@ from scipy.ndimage import gaussian_filter, sobel
 import os
 from concurrent.futures import ProcessPoolExecutor
 
+# --- Global container for worker processes ---
+# This ensures data is not pickled/copied for every single task
+worker_data = {}
+
+def init_worker(t_shared, x_shared, y_shared):
+    """
+    Initialize the worker process by storing the large arrays in global memory.
+    This runs once per process, not once per task.
+    """
+    worker_data['t'] = t_shared
+    worker_data['x'] = x_shared
+    worker_data['y'] = y_shared
+
 def __function_metadata__():
     return {
         'run_analysis': {
@@ -26,39 +39,53 @@ def __function_metadata__():
 def compute_single_interval(args):
     """
     Worker function to process a single interval.
-    Args are packed in a tuple to be compatible with executor.map
+    Args now only contain metadata. Data is accessed via worker_data.
     """
-    interval, t, x, y, width, height = args
+    interval, width, height = args
+    
+    # Retrieve data from global storage (zero copy)
+    t = worker_data['t']
+    x = worker_data['x']
+    y = worker_data['y']
     
     # 1. Define Time Bins
     t_start, t_end = t[0], t[-1]
+    
+    # RAM OPTIMIZATION: Instead of np.digitize (which allocates len(t) ints),
+    # use searchsorted because 't' is already sorted.
+    # This keeps memory usage near zero for the slicing logic.
     bins = np.arange(t_start, t_end + interval, interval)
     
-    # 2. Assign events to frames 
-    frame_indices = np.digitize(t, bins) - 1
+    # Find indices where time bins start/end
+    # This is much faster and lighter than digitize for sorted data
+    idx_bounds = np.searchsorted(t, bins)
     
-    # Filter valid frames
-    valid_mask = (frame_indices >= 0) & (frame_indices < (len(bins) - 1))
-    
-    if not np.any(valid_mask):
-        return {'interval': interval, 'mean_contrast': 0.0}
-
-    unique_frames = np.unique(frame_indices[valid_mask])
     contrasts = []
     
-    # 3. Process each frame
-    for f_idx in unique_frames:
-        mask = frame_indices == f_idx
+    # 2. Process each frame using slices
+    # Iterate through the bins defined by indices
+    for i in range(len(idx_bounds) - 1):
+        start_idx = idx_bounds[i]
+        end_idx = idx_bounds[i+1]
+        
+        # Skip empty frames
+        if start_idx == end_idx:
+            continue
+            
+        # Create views (zero copy) of the current frame's events
+        x_slice = x[start_idx:end_idx]
+        y_slice = y[start_idx:end_idx]
         
         # Fast histogram
-        img, _, _ = np.histogram2d(y[mask], x[mask], 
+        img, _, _ = np.histogram2d(y_slice, x_slice, 
                                    bins=[height, width], 
                                    range=[[0, height], [0, width]])
         
+        # Convert to boolean contrast map
         img = (img > 0).astype(np.float32) * 255
 
+        # 3. Contrast Calculation
         blurred = gaussian_filter(img, sigma=2)
-        
         grad_x = sobel(blurred, axis=1)
         grad_y = sobel(blurred, axis=0)
         magnitude = np.hypot(grad_x, grad_y)
@@ -70,14 +97,15 @@ def compute_single_interval(args):
 
 def run_analysis(ev, x_res=256, y_res=256, min_interval=None, max_interval=None, step_interval=None):
     """
-    Run the area of continuous contrast analysis on the given event dataset, done in parallel for multiple intervals.
+    Run the area of continuous contrast analysis optimized for memory usage.
     """
     x_res = int(x_res)
     y_res = int(y_res)
     
-    t = ev['t'].astype(np.float64)
-    x = ev['x'].astype(np.int32)
-    y = ev['y'].astype(np.int32)
+    # Ensure contiguous arrays for better performance
+    t = np.ascontiguousarray(ev['t'].astype(np.float64))
+    x = np.ascontiguousarray(ev['x'].astype(np.int32))
+    y = np.ascontiguousarray(ev['y'].astype(np.int32))
     
     max_x_event = x.max()
     max_y_event = y.max()
@@ -117,12 +145,20 @@ def run_analysis(ev, x_res=256, y_res=256, min_interval=None, max_interval=None,
 
     intervals = np.arange(min_interval, max_interval, step_interval)
     
-    tasks = [(iv, t, x, y, x_res, y_res) for iv in intervals]
+    # MEMORY FIX: Only pass metadata in the tasks list
+    # t, x, y are NOT passed here
+    tasks = [(iv, x_res, y_res) for iv in intervals]
     
     results_list = []
-    print(f"Starting parallel processing with {os.cpu_count()} workers...")
     
-    with ProcessPoolExecutor() as executor:
+    # Use max_workers to limit concurrent processes (optional, defaults to CPU count)
+    # Using slightly fewer workers than CPU count can sometimes help with RAM if dataset is massive
+    num_workers = os.cpu_count()
+    print(f"Starting parallel processing with {num_workers} workers...")
+    
+    with ProcessPoolExecutor(max_workers=num_workers, 
+                             initializer=init_worker, 
+                             initargs=(t, x, y)) as executor:
         results_gen = executor.map(compute_single_interval, tasks)
         results_list = list(results_gen)
 
@@ -140,4 +176,8 @@ def run_analysis(ev, x_res=256, y_res=256, min_interval=None, max_interval=None,
     plt.grid(True)
     
     area = trapezoid(results['mean_contrast'], results['interval'])
-    return plt.gcf(), {'area': area}
+    return plt.gcf(), {
+        'area': area,
+        'curve_x': results['interval'].tolist(),
+        'curve_y': results['mean_contrast'].tolist()
+    }

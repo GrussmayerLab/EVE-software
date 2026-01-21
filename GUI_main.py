@@ -5680,6 +5680,7 @@ class DataAnalysisWidget(QWidget):
         
         # 3. Iterate and Analyze
         aggregated_results = []
+        overlay_curves = []
         
         # Progress Bar? For now just logging
         logging.info(f"Starting batch analysis on {len(files)} files...")
@@ -5740,6 +5741,18 @@ class DataAnalysisWidget(QWidget):
                         row = current_res.copy()
                         row['filename'] = filename
                         aggregated_results.append(row)
+                        
+                        # Accumulate for overlay
+                        if 'curve_x' in current_res and 'curve_y' in current_res:
+                            # We don't want to clutter the CSV with huge arrays
+                            if 'curve_x' in row: del row['curve_x']
+                            if 'curve_y' in row: del row['curve_y']
+                            
+                            overlay_curves.append({
+                                'label': filename,
+                                'x': current_res['curve_x'],
+                                'y': current_res['curve_y']
+                            })
                     elif isinstance(current_res, (int, float, str)):
                          aggregated_results.append({'filename': filename, 'result': current_res})
                     else:
@@ -5753,6 +5766,26 @@ class DataAnalysisWidget(QWidget):
                 self.resultsText.append(f"Failed: {filename} ({str(e)})")
                 continue
         
+        
+        # 5. Overlay Plot
+        if overlay_curves:
+             try:
+                 logging.info("Generating summary overlay plot...")
+                 fig_overlay = plt.figure(figsize=(10, 6))
+                 for curve in overlay_curves:
+                     plt.plot(curve['x'], curve['y'], label=curve['label'], marker='o', markersize=2, alpha=0.7)
+                 
+                 plt.title(f"Summary Overlay: {methodName}")
+                 plt.legend()
+                 plt.grid(True)
+                 
+                 overlay_path = os.path.join(results_dir, "summary_overlay.png")
+                 fig_overlay.savefig(overlay_path)
+                 plt.close(fig_overlay)
+                 logging.info(f"Summary overlay saved to {overlay_path}")
+             except Exception as e:
+                 logging.error(f"Failed to create summary overlay: {e}")
+
         # 4. Finalize
         if aggregated_results:
             df = pd.DataFrame(aggregated_results)
