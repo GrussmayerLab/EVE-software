@@ -29,8 +29,8 @@ def __function_metadata__():
                 {'name': 'y_res', 'type': int, 'default': 483, 'description': 'Sensor resolution (Y-Axis) in microns.'}
             ],
             'optional_kwargs': [
-                {'name': 'min_interval', 'type': int, 'default': None, 'description': 'Min interval (default: auto)'},
-                {'name': 'max_interval', 'type': int, 'default': None, 'description': 'Max interval (default: auto)'},
+                {'name': 'min_interval', 'type': int, 'default': 60000, 'description': 'Min interval (default: auto)'},
+                {'name': 'max_interval', 'type': int, 'default': 10000000, 'description': 'Max interval (default: auto)'},
                 {'name': 'step_interval', 'type': int, 'default': None, 'description': 'Step size (default: auto)'},
             ],
         }

@@ -8,10 +8,10 @@ def __function_metadata__():
             'display_name': 'Event Structural Ratio',
             'help_string': 'Calculate the event structural ratio for a given event dataset',
             'required_kwargs': [
-                {'name': 'x_res', 'type': int, 'default': 256, 'description': 'Sensor resolution (X-Axis) in microns.'},
-                {'name': 'y_res', 'type': int, 'default': 256, 'description': 'Sensor resolution (Y-Axis) in microns.'},
-                {'name': 'refN', 'type': int, 'default': 20000, 'description': 'Reference number of events for interpolation'},
-                {'name': 'count', 'type': int, 'default': 30000, 'description': 'Number of events in the dataset'}
+                {'name': 'x_res', 'type': int, 'default': 941, 'description': 'Sensor resolution (X-Axis) in microns.'},
+                {'name': 'y_res', 'type': int, 'default': 483, 'description': 'Sensor resolution (Y-Axis) in microns.'},
+                {'name': 'refN', 'type': int, 'default': 800000, 'description': 'Reference number of events for interpolation'},
+                {'name': 'count', 'type': int, 'default': 1000000, 'description': 'Number of events in the dataset'}
             ],
             'optional_kwargs': [],
         }

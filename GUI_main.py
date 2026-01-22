@@ -5628,7 +5628,8 @@ class DataAnalysisWidget(QWidget):
         print(f"DEBUG: _run_batch_analysis called with {data_path}")
 
         # 1. Search for files
-        extensions = ['*.hdf5', '*.npy', '*.raw']
+        # extensions = ['*.hdf5', '*.npy', '*.raw']
+        extensions = ['*.raw']
         files = []
         for ext in extensions:
             found = glob.glob(os.path.join(data_path, '**', ext), recursive=True)
@@ -5642,12 +5643,7 @@ class DataAnalysisWidget(QWidget):
             print("DEBUG: No files found, returning.")
             return
 
-        # 2. Setup Results Directory
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        results_dir = os.path.join(data_path, f"Analysis_Results_{timestamp}")
-        os.makedirs(results_dir, exist_ok=True)
-        print(f"DEBUG: Created results dir: {results_dir}")
-        
+
         # Determine Method and Args (Shared across all files)
         methodName = ""
         text = self.analysisDropdown.currentText()
@@ -5661,6 +5657,12 @@ class DataAnalysisWidget(QWidget):
         if not methodName:
             logging.error("No analysis method selected.")
             return
+
+        # 2. Setup Results Directory
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        results_dir = os.path.join(data_path, f"Analysis_Results_{methodName}_{timestamp}")
+        os.makedirs(results_dir, exist_ok=True)
+        print(f"DEBUG: Created results dir: {results_dir}")
 
         methodKwargNames = []
         methodKwargValues = []
