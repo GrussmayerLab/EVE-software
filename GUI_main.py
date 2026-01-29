@@ -5741,7 +5741,9 @@ class DataAnalysisWidget(QWidget):
                     # Add filename to results
                     if isinstance(current_res, dict):
                         row = current_res.copy()
-                        row['filename'] = filename
+                        clean_name = re.sub(r'_\d+$', '', filename)
+                        row['filename'] = clean_name
+
                         aggregated_results.append(row)
                         
                         # Accumulate for overlay
@@ -5778,6 +5780,8 @@ class DataAnalysisWidget(QWidget):
                      plt.plot(curve['x'], curve['y'], label=curve['label'], marker='o', markersize=2, alpha=0.7)
                  
                  plt.title(f"Summary Overlay: {methodName}")
+                 plt.xlabel("Interval (μs)")
+                 plt.ylabel("Contrast Value")
                  plt.legend()
                  plt.grid(True)
                  
