@@ -4,6 +4,7 @@ import pandas as pd
 from scipy.integrate import trapezoid
 from scipy.ndimage import gaussian_filter, sobel
 import os
+import gc
 from concurrent.futures import ProcessPoolExecutor
 
 # --- Global container for worker processes ---
@@ -90,8 +91,12 @@ def compute_single_interval(args):
         grad_y = sobel(blurred, axis=0)
         magnitude = np.hypot(grad_x, grad_y)
         contrasts.append(np.std(magnitude))
+        del img, blurred, grad_x, grad_y, magnitude  # attempt to free memory
 
     mean_val = np.mean(contrasts) if contrasts else 0.0
+    contrasts.clear()  # free memory
+    gc.collect() # force garbage collection to free memory immediately
+
     return {'interval': interval, 'mean_contrast': mean_val}
 
 
@@ -132,7 +137,7 @@ def run_analysis(ev, x_res=256, y_res=256, min_interval=None, max_interval=None,
         max_interval = int(max_interval)
         
     if step_interval is None:
-        step_interval = int((max_interval - min_interval) / 50)
+        step_interval = int((max_interval - min_interval) / 5)
         step_interval = max(100, step_interval)
     else:
         step_interval = int(step_interval)
