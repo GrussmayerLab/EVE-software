@@ -5790,53 +5790,92 @@ class DataAnalysisWidget(QWidget):
                 self.resultsText.append(f"Failed directory: {directory} ({str(e)})")
                 continue
 
-            # 6. Create overlay plot per directory
-            for dir_name, curves in directory_overlay_curves.items():
-                try:
-                    logging.info(f"Generating overlay plot for {dir_name}...")
-                    fig_overlay = plt.figure(figsize=(10, 6))
+        # 6. Create overlay plot per directory AND Collect Global Averages
+        global_averages = []  # <--- New list to store data for the global plot
 
-                    # Plot individual curves
-                    for curve in curves:
-                        plt.plot(curve['x'], curve['y'],
-                                 label=curve['filename'],
-                                 marker='o', markersize=3, alpha=0.5)
+        for dir_name, curves in directory_overlay_curves.items():
+            try:
+                logging.info(f"Generating overlay plot for {dir_name}...")
+                fig_overlay = plt.figure(figsize=(10, 6))
 
-                    # Calculate and plot average
+                # Plot individual curves
+                for curve in curves:
+                    plt.plot(curve['x'], curve['y'],
+                             label=curve['filename'],
+                             marker='o', markersize=3, alpha=0.5)
+
+                # Calculate and plot average
+                if curves:
+                    # Calculate mean for the Global Plot (even if there is only 1 file)
+                    avg_x = curves[0]['x']
+                    avg_y = np.mean([c['y'] for c in curves], axis=0)
+
+                    # Store this directory's average for the next step
+                    global_averages.append({
+                        'directory': dir_name,
+                        'x': avg_x,
+                        'y': avg_y
+                    })
+
+                    # Existing logic: Only draw the black "Average" line on the directory plot
+                    # if there is more than 1 file (to avoid clutter on single-file plots)
                     if len(curves) > 1:
-                        avg_x = curves[0]['x']
-                        avg_y = np.mean([c['y'] for c in curves], axis=0)
                         plt.plot(avg_x, avg_y,
                                  label='Average',
                                  linewidth=2.5, color='black', marker='s', markersize=5)
 
-                    plt.title(f"Summary: {dir_name}")
-                    plt.xlabel("Interval (μs)")
-                    plt.ylabel("Contrast Value")
-                    plt.legend()
-                    plt.grid(True)
+                plt.title(f"Summary: {dir_name}")
+                plt.xlabel("Interval (μs)")
+                plt.ylabel("Contrast Value")
+                plt.legend()
+                plt.grid(True)
 
-                    overlay_path = os.path.join(results_dir, f"overlay_{dir_name}.png")
-                    fig_overlay.savefig(overlay_path, dpi=150)
-                    plt.close(fig_overlay)
-                    logging.info(f"Overlay saved to {overlay_path}")
-                except Exception as e:
-                    logging.error(f"Failed to create overlay for {dir_name}: {e}")
+                overlay_path = os.path.join(results_dir, f"overlay_{dir_name}.png")
+                fig_overlay.savefig(overlay_path, dpi=150)
+                plt.close(fig_overlay)
+                logging.info(f"Overlay saved to {overlay_path}")
+            except Exception as e:
+                logging.error(f"Failed to create overlay for {dir_name}: {e}")
 
-            # 7. Save summary CSV
-            if aggregated_results:
-                df = pd.DataFrame(aggregated_results)
-                cols = ['directory', 'num_files'] + [c for c in df.columns if c not in ['directory', 'num_files']]
-                df = df[cols]
+        # 7. Create Global Directory Comparison Overlay (NEW)
+        if global_averages:
+            try:
+                logging.info("Generating global directory comparison plot...")
+                fig_global = plt.figure(figsize=(12, 8))
 
-                csv_path = os.path.join(results_dir, "directory_summary.csv")
-                df.to_csv(csv_path, index=False)
+                for item in global_averages:
+                    plt.plot(item['x'], item['y'],
+                             label=item['directory'],
+                             linewidth=2, marker='o', markersize=4, alpha=0.8)
 
-                summary_msg = f"Batch Analysis Complete.\nProcessed {len(aggregated_results)} directories.\nResults saved to: {results_dir}\n\nSummary:\n{df.to_markdown()}"
-                self.resultsText.setText(summary_msg)
-                logging.info(f"Batch analysis complete. Results saved at {results_dir}")
-            else:
-                self.resultsText.append("\nBatch analysis finished with no successful results.")
+                plt.title("Global Comparison: Average per Directory")
+                plt.xlabel("Interval (μs)")
+                plt.ylabel("Contrast Value")
+                plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")  # Move legend outside if many dirs
+                plt.grid(True)
+                plt.tight_layout()
+
+                global_path = os.path.join(results_dir, "global_directory_comparison.png")
+                fig_global.savefig(global_path, dpi=150)
+                plt.close(fig_global)
+                logging.info(f"Global comparison saved to {global_path}")
+            except Exception as e:
+                logging.error(f"Failed to create global comparison plot: {e}")
+
+        # 8. Save summary CSV
+        if aggregated_results:
+            df = pd.DataFrame(aggregated_results)
+            cols = ['directory', 'num_files'] + [c for c in df.columns if c not in ['directory', 'num_files']]
+            df = df[cols]
+
+            csv_path = os.path.join(results_dir, "directory_summary.csv")
+            df.to_csv(csv_path, index=False)
+
+            summary_msg = f"Batch Analysis Complete.\nProcessed {len(aggregated_results)} directories.\nResults saved to: {results_dir}\n\nSummary:\n{df.to_markdown()}"
+            self.resultsText.setText(summary_msg)
+            logging.info(f"Batch analysis complete. Results saved at {results_dir}")
+        else:
+            self.resultsText.append("\nBatch analysis finished with no successful results.")
 
     def _average_directory_results(self, results_list):
         """
