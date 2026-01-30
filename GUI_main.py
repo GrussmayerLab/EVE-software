@@ -5623,28 +5623,27 @@ class DataAnalysisWidget(QWidget):
     def _run_batch_analysis(self, data_path):
         """
         Helper to run analysis on all supported files in a directory recursively.
+        Groups files by parent directory and averages results.
         """
-        
+
         print(f"DEBUG: _run_batch_analysis called with {data_path}")
 
         # 1. Search for files
-        # extensions = ['*.hdf5', '*.npy', '*.raw']
         extensions = ['*.raw']
         files = []
         for ext in extensions:
             found = glob.glob(os.path.join(data_path, '**', ext), recursive=True)
             print(f"DEBUG: Searching {ext} in {data_path} -> Found {len(found)}")
             files.extend(found)
-        
+
         print(f"DEBUG: Total files found: {files}")
-        
+
         if not files:
             QMessageBox.information(self, "Batch Analysis", "No supported data files found in the directory.")
             print("DEBUG: No files found, returning.")
             return
 
-
-        # Determine Method and Args (Shared across all files)
+        # Determine Method and Args
         methodName = ""
         text = self.analysisDropdown.currentText()
         print(f"DEBUG: Dropdown text: {text}")
@@ -5653,7 +5652,7 @@ class DataAnalysisWidget(QWidget):
                 methodName = self.functionNameToDisplayNameMapping[i][1]
                 break
         print(f"DEBUG: Resolved methodName: {methodName}")
-        
+
         if not methodName:
             logging.error("No analysis method selected.")
             return
@@ -5671,142 +5670,207 @@ class DataAnalysisWidget(QWidget):
             for i in range(layout.count()):
                 item = layout.itemAt(i)
                 if item.widget():
-                   self._extract_widget_value(item.widget(), methodName, methodKwargNames, methodKwargValues)
+                    self._extract_widget_value(item.widget(), methodName, methodKwargNames, methodKwargValues)
                 elif item.layout():
-                     sublayout = item.layout()
-                     for j in range(sublayout.count()):
-                          subitem = sublayout.itemAt(j)
-                          if subitem.widget():
-                              self._extract_widget_value(subitem.widget(), methodName, methodKwargNames, methodKwargValues)
+                    sublayout = item.layout()
+                    for j in range(sublayout.count()):
+                        subitem = sublayout.itemAt(j)
+                        if subitem.widget():
+                            self._extract_widget_value(subitem.widget(), methodName, methodKwargNames,
+                                                       methodKwargValues)
 
-        
-        # 3. Iterate and Analyze
-        aggregated_results = []
-        overlay_curves = []
-        
-        # Progress Bar? For now just logging
-        logging.info(f"Starting batch analysis on {len(files)} files...")
-        self.resultsText.setText(f"Starting batch analysis on {len(files)} files...\n")
-        
+        # 3. Group files by directory (parent folder)
+        files_by_directory = {}
         for file_path in files:
+            directory = os.path.dirname(file_path)
+            if directory not in files_by_directory:
+                files_by_directory[directory] = []
+            files_by_directory[directory].append(file_path)
+
+        print(f"DEBUG: Grouped into {len(files_by_directory)} directories")
+
+        # 4. Iterate over directories and analyze
+        aggregated_results = []
+        directory_overlay_curves = {}
+
+        logging.info(f"Starting batch analysis on {len(files_by_directory)} directories...")
+        self.resultsText.setText(f"Starting batch analysis on {len(files_by_directory)} directories...\n")
+
+        for directory, files_in_dir in sorted(files_by_directory.items()):
             try:
-                filename = os.path.basename(file_path)
-                logging.info(f"Analyzing {filename}...")
-                
-                # Load Data
-                # Note: parent.loadRawData relies on logic that might be tied to 'self' context in a tricky way
-                # But looking at usage, it takes 'dataLocation'.
-                # We need to make sure using parent.loadRawData works okay in loop.
-                # Use a try-except block strictly around this to avoid crashing entire batch
-                
-                eventsDict = self.parent.loadRawData(file_path)
-                
-                if eventsDict is None or len(eventsDict) == 0:
-                     logging.warning(f"Empty or invalid data for {filename}, skipping.")
-                     continue
-                
-                if len(eventsDict) > 1:
-                     events = np.vstack(eventsDict)
-                     events = events[events[:, 0].argsort()]
-                else:
-                     events = eventsDict[0]
+                dir_name = os.path.basename(directory)
+                logging.info(f"Processing directory: {dir_name} ({len(files_in_dir)} files)...")
+                self.resultsText.append(f"Processing: {dir_name}\n")
 
-                # Prepare Eval
-                partialString = "ev=events"
-                evalText = utils.getEvalTextFromGUIFunction(
-                    methodName, 
-                    methodKwargNames, 
-                    methodKwargValues, 
-                    partialStringStart=partialString
-                )
-                
-                # Execute
-                result = eval(evalText)
-                
-                if isinstance(result, tuple) and len(result) == 2:
-                    current_fig = result[0]
-                    current_res = result[1]
-                    
-                    # Save Figure
-                    fig_name = f"{os.path.splitext(filename)[0]}_analysis.png"
-                    fig_path = os.path.join(results_dir, fig_name)
-                    current_fig.savefig(fig_path)
-                    
-                    # Sometimes matplotlib holds memory, so clear
-                    current_fig.clf()
-                    plt.close(current_fig)
+                dir_results = []
+                dir_curves = []
 
-                    # Collect Results
-                    # Flatten dict if necessary, but assuming simple dict for DataFrame
-                    # Add filename to results
-                    if isinstance(current_res, dict):
-                        row = current_res.copy()
-                        clean_name = re.sub(r'_\d+$', '', filename)
-                        row['filename'] = clean_name
+                # Analyze each file in the directory
+                for file_path in files_in_dir:
+                    try:
+                        filename = os.path.basename(file_path)
+                        logging.debug(f"  Analyzing {filename}...")
 
-                        aggregated_results.append(row)
-                        
-                        # Accumulate for overlay
-                        if 'curve_x' in current_res and 'curve_y' in current_res:
-                            # We don't want to clutter the CSV with huge arrays
-                            if 'curve_x' in row: del row['curve_x']
-                            if 'curve_y' in row: del row['curve_y']
-                            
-                            overlay_curves.append({
-                                'label': filename,
-                                'x': current_res['curve_x'],
-                                'y': current_res['curve_y']
-                            })
-                    elif isinstance(current_res, (int, float, str)):
-                         aggregated_results.append({'filename': filename, 'result': current_res})
-                    else:
-                         logging.warning(f"Unknown result format for {filename}: {type(current_res)}")
-                
-                else:
-                    logging.warning(f"Script returned invalid format for {filename}")
+                        # Load Data
+                        eventsDict = self.parent.loadRawData(file_path)
+
+                        if eventsDict is None or len(eventsDict) == 0:
+                            logging.warning(f"Empty or invalid data for {filename}, skipping.")
+                            continue
+
+                        if len(eventsDict) > 1:
+                            events = np.vstack(eventsDict)
+                            events = events[events[:, 0].argsort()]
+                        else:
+                            events = eventsDict[0]
+
+                        # Prepare Eval
+                        partialString = "ev=events"
+                        evalText = utils.getEvalTextFromGUIFunction(
+                            methodName,
+                            methodKwargNames,
+                            methodKwargValues,
+                            partialStringStart=partialString
+                        )
+
+                        # Execute
+                        result = eval(evalText)
+
+                        if isinstance(result, tuple) and len(result) == 2:
+                            current_fig = result[0]
+                            current_res = result[1]
+
+                            # Save individual Figure
+                            fig_name = f"{os.path.splitext(filename)[0]}_analysis.png"
+                            fig_path = os.path.join(results_dir, fig_name)
+                            current_fig.savefig(fig_path)
+                            current_fig.clf()
+                            plt.close(current_fig)
+
+                            # Collect Results
+                            if isinstance(current_res, dict):
+                                row = current_res.copy()
+                                row['filename'] = filename
+                                row['directory'] = dir_name
+                                dir_results.append(row)
+
+                                # Accumulate curves for averaging
+                                if 'curve_x' in current_res and 'curve_y' in current_res:
+                                    dir_curves.append({
+                                        'filename': filename,
+                                        'x': np.array(current_res['curve_x']),
+                                        'y': np.array(current_res['curve_y'])
+                                    })
+                            else:
+                                logging.warning(f"Unknown result format for {filename}: {type(current_res)}")
+
+                        else:
+                            logging.warning(f"Script returned invalid format for {filename}")
+
+                    except Exception as e:
+                        logging.error(f"Failed to analyze {filename}: {e}")
+                        self.resultsText.append(f"  Failed: {filename} ({str(e)})")
+                        continue
+
+                # 5. Average results per directory
+                if dir_results:
+                    avg_result = self._average_directory_results(dir_results)
+                    avg_result['directory'] = dir_name
+                    avg_result['num_files'] = len(dir_results)
+                    aggregated_results.append(avg_result)
+
+                    # Store directory curves for overlay
+                    if dir_curves:
+                        directory_overlay_curves[dir_name] = dir_curves
+
+                logging.info(f"Completed directory: {dir_name}")
 
             except Exception as e:
-                logging.error(f"Failed to analyze {filename}: {e}")
-                self.resultsText.append(f"Failed: {filename} ({str(e)})")
+                logging.error(f"Failed to process directory {directory}: {e}")
+                self.resultsText.append(f"Failed directory: {directory} ({str(e)})")
                 continue
-        
-        
-        # 5. Overlay Plot
-        if overlay_curves:
-             try:
-                 logging.info("Generating summary overlay plot...")
-                 fig_overlay = plt.figure(figsize=(10, 6))
-                 for curve in overlay_curves:
-                     plt.plot(curve['x'], curve['y'], label=curve['label'], marker='o', markersize=2, alpha=0.7)
-                 
-                 plt.title(f"Summary Overlay: {methodName}")
-                 plt.xlabel("Interval (μs)")
-                 plt.ylabel("Contrast Value")
-                 plt.legend()
-                 plt.grid(True)
-                 
-                 overlay_path = os.path.join(results_dir, "summary_overlay.png")
-                 fig_overlay.savefig(overlay_path)
-                 plt.close(fig_overlay)
-                 logging.info(f"Summary overlay saved to {overlay_path}")
-             except Exception as e:
-                 logging.error(f"Failed to create summary overlay: {e}")
 
-        # 4. Finalize
-        if aggregated_results:
-            df = pd.DataFrame(aggregated_results)
-            # Reorder columns to put filename first if present
-            cols = ['filename'] + [c for c in df.columns if c != 'filename']
-            df = df[cols]
-            
-            csv_path = os.path.join(results_dir, "summary_comparison.csv")
-            df.to_csv(csv_path, index=False)
-            
-            summary_msg = f"Batch Analysis Complete.\nProcessed {len(aggregated_results)}/{len(files)} files.\nResults saved to: {results_dir}\n\nSummary:\n{df.to_markdown()}"
-            self.resultsText.setText(summary_msg)
-            logging.info(f"Batch analysis complete. Results saved at {results_dir}")
-        else:
-            self.resultsText.append("\nBatch analysis finished with no successful results.")
+            # 6. Create overlay plot per directory
+            for dir_name, curves in directory_overlay_curves.items():
+                try:
+                    logging.info(f"Generating overlay plot for {dir_name}...")
+                    fig_overlay = plt.figure(figsize=(10, 6))
+
+                    # Plot individual curves
+                    for curve in curves:
+                        plt.plot(curve['x'], curve['y'],
+                                 label=curve['filename'],
+                                 marker='o', markersize=3, alpha=0.5)
+
+                    # Calculate and plot average
+                    if len(curves) > 1:
+                        avg_x = curves[0]['x']
+                        avg_y = np.mean([c['y'] for c in curves], axis=0)
+                        plt.plot(avg_x, avg_y,
+                                 label='Average',
+                                 linewidth=2.5, color='black', marker='s', markersize=5)
+
+                    plt.title(f"Summary: {dir_name}")
+                    plt.xlabel("Interval (μs)")
+                    plt.ylabel("Contrast Value")
+                    plt.legend()
+                    plt.grid(True)
+
+                    overlay_path = os.path.join(results_dir, f"overlay_{dir_name}.png")
+                    fig_overlay.savefig(overlay_path, dpi=150)
+                    plt.close(fig_overlay)
+                    logging.info(f"Overlay saved to {overlay_path}")
+                except Exception as e:
+                    logging.error(f"Failed to create overlay for {dir_name}: {e}")
+
+            # 7. Save summary CSV
+            if aggregated_results:
+                df = pd.DataFrame(aggregated_results)
+                cols = ['directory', 'num_files'] + [c for c in df.columns if c not in ['directory', 'num_files']]
+                df = df[cols]
+
+                csv_path = os.path.join(results_dir, "directory_summary.csv")
+                df.to_csv(csv_path, index=False)
+
+                summary_msg = f"Batch Analysis Complete.\nProcessed {len(aggregated_results)} directories.\nResults saved to: {results_dir}\n\nSummary:\n{df.to_markdown()}"
+                self.resultsText.setText(summary_msg)
+                logging.info(f"Batch analysis complete. Results saved at {results_dir}")
+            else:
+                self.resultsText.append("\nBatch analysis finished with no successful results.")
+
+    def _average_directory_results(self, results_list):
+        """
+        Average numeric results across multiple files in a directory.
+        Handles both scalar values and array-like curves.
+        """
+        if not results_list:
+            return {}
+
+        avg_result = {}
+
+        # Get all numeric keys from first result
+        first_result = results_list[0]
+
+        for key in first_result.keys():
+            if key in ['filename', 'directory', 'curve_x', 'curve_y']:
+                continue
+
+            values = []
+            for result in results_list:
+                if key in result:
+                    val = result[key]
+                    # Try to convert to float for averaging
+                    try:
+                        values.append(float(val))
+                    except (ValueError, TypeError):
+                        continue
+
+            # Calculate average and std
+            if values and len(values) == len(results_list):
+                avg_result[f"{key}_mean"] = np.mean(values)
+                avg_result[f"{key}_std"] = np.std(values)
+
+        return avg_result
 
     def _extract_widget_value(self, widget, methodName, names, values):
         if "LineEdit" in widget.objectName() and widget.isVisible():
