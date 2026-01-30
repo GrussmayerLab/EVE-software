@@ -192,6 +192,12 @@ class MyGUI(QMainWindow):
         self.polarityDropdownNames = ['All events treated equal','Positive only','Negative only','Pos and neg seperately']
         self.polarityDropdownOrder = [0,1,2,3]
 
+        self.scoringMethodNames = {
+            'Count': 'count',
+            'Area of Continuous Contrast': 'areaOfContinuousContrast',
+            'Event Structural Ratio': 'eventStructuraRatio'
+        }
+
         #Initialise (but not show!) advanced window:
         self.advancedSettingsWindow = AdvancedSettingsWindow(self)
 
@@ -862,8 +868,19 @@ class MyGUI(QMainWindow):
         self.buttonSearch = QPushButton("Search Hyperparameters")
         self.buttonSearch.setToolTip("Search for optimal hyperparameters for candidate finding and fitting")
 
-        self.buttonSearch.clicked.connect(lambda: self.open_hyperparameter_search_window())
-        self.runLayout.layout().addWidget(self.buttonSearch, 3, 0, 1, 6)
+        self.buttonSearch.clicked.connect(lambda: self.search_hyperparameters())
+        
+        self.runLayout.layout().addWidget(QLabel("Scoring metric:"), 3, 0, 1, 1)
+        self.search_scoringMethod = QComboBox()
+        self.search_scoringMethod.addItems(list(self.scoringMethodNames.keys()))
+        self.runLayout.layout().addWidget(self.search_scoringMethod, 3, 1, 1, 2)
+
+        self.runLayout.layout().addWidget(QLabel("N trials:"), 3, 3, 1, 1)
+        self.search_nTrials = QLineEdit()
+        self.search_nTrials.setText("50")
+        self.runLayout.layout().addWidget(self.search_nTrials, 3, 4, 1, 2)
+        
+        self.runLayout.layout().addWidget(self.buttonSearch, 4, 0, 1, 6)
 
         """
         Spacing between things above and things below
@@ -960,6 +977,16 @@ class MyGUI(QMainWindow):
         #Add the button to the layout:
         self.previewLayout.layout().addWidget(self.buttonEventsPreview, 4, 2, 1 ,2)
 
+        self.previewLayout.layout().addWidget(QLabel("Scoring metric:"), 5, 0, 1, 1)
+        self.preview_scoringMethod = QComboBox()
+        self.preview_scoringMethod.addItems(list(self.scoringMethodNames.keys()))
+        self.previewLayout.layout().addWidget(self.preview_scoringMethod, 5, 1, 1, 1)
+
+        self.previewLayout.layout().addWidget(QLabel("N trials:"), 5, 2, 1, 1)
+        self.preview_nTrials = QLineEdit()
+        self.preview_nTrials.setText("50")
+        self.previewLayout.layout().addWidget(self.preview_nTrials, 5, 3, 1, 1)
+
         #Add a 'Find Best Parameters' button:
         self.buttonFindBestParams = QPushButton("Search Hyperparameters in Subsets")
         self.buttonFindBestParams.setToolTip("Run a search on the preview data (subsets) to find the best parameters for candidate finding.")
@@ -968,7 +995,7 @@ class MyGUI(QMainWindow):
             (self.preview_minXLineEdit.text(), self.preview_maxXLineEdit.text(),
              self.preview_minYLineEdit.text(), self.preview_maxYLineEdit.text())
         ))
-        self.previewLayout.layout().addWidget(self.buttonFindBestParams, 5, 0, 1, 4)
+        self.previewLayout.layout().addWidget(self.buttonFindBestParams, 6, 0, 1, 4)
 
     def preview_find_best_parameters(self, timeStretch, xyStretch):
         """
@@ -1004,7 +1031,12 @@ class MyGUI(QMainWindow):
             return
 
         # Run the search
-        best_method, best_params = findingSearch.search_run_optuna(previewEvents, self.globalSettings, n_trials=50, n_jobs=4)
+        scoring_method = self.scoringMethodNames.get(self.preview_scoringMethod.currentText(), 'count')
+        try:
+            n_trials = int(self.preview_nTrials.text())
+        except ValueError:
+            n_trials = 50
+        best_method, best_params = findingSearch.search_run_optuna(previewEvents, self.globalSettings, n_trials=n_trials, n_jobs=1, scoring_method=scoring_method)
         # best_method, best_params = findingSearch.preview_run(previewEvents, self.globalSettings)
 
         
@@ -1140,10 +1172,15 @@ class MyGUI(QMainWindow):
 
         if self.dataLocationInput.text().endswith(('.hdf5', '.npy', '.raw')):
 
-            events = self.load_events_for_search(self, use_preview_range=True, limit_chunks=5)
+            events = self.load_events_for_search(use_preview_range=True, limit_chunks=5)
 
-            best_method, best_params = findingSearch.search_run_optuna(events, self.globalSettings, n_trials=1,
-                                                                       n_jobs=4)
+            scoring_method = self.scoringMethodNames.get(self.search_scoringMethod.currentText(), 'count')
+            try:
+                n_trials = int(self.search_nTrials.text())
+            except ValueError:
+                n_trials = 50
+            best_method, best_params = findingSearch.search_run_optuna(events, self.globalSettings, n_trials=n_trials,
+                                                                       n_jobs=4, scoring_method=scoring_method)
 
             if best_method:
                 msg = f"Best Method: {best_method}\nBest Params: {best_params}"

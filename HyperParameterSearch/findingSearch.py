@@ -4,6 +4,8 @@ import itertools
 import logging
 import numpy as np
 import optuna
+import pandas as pd
+from DataAnalysis import areaOfContinuousContrast, eventStructuraRatio
 
 # Add parent directory to path to allow imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -140,7 +142,7 @@ def evaluate_params(method_name, func, kwargs, events, settings):
         logging.error(f"Error running {method_name} with {kwargs}: {e}")
         return -1, kwargs, method_name
 
-def optimize_method_with_optuna(method_name, param_grid, filtered_events, settings, n_trials=200):
+def optimize_method_with_optuna(method_name, param_grid, filtered_events, settings, n_trials=200, scoring_method='count'):
     """
     Use Optuna to optimize parameters for a single method using Bayesian optimization.
 
@@ -150,6 +152,7 @@ def optimize_method_with_optuna(method_name, param_grid, filtered_events, settin
         filtered_events: Filtered event data
         settings: Global settings
         n_trials: Number of Optuna trials to run (default 200)
+        scoring_method: Method to score the run ('count', 'areaOfContinuousContrast', 'eventStructuraRatio')
 
     Returns:
         (best_score, best_params, method_name)
@@ -161,6 +164,9 @@ def optimize_method_with_optuna(method_name, param_grid, filtered_events, settin
 
     def objective(trial):
         kwargs = {}
+        # Ensure debug is set to avoid KeyErrors in some finding methods
+        kwargs['debug'] = 'False'
+        
         for param_name, param_values in param_grid.items():
             if isinstance(param_values, list):
                 # Determine the type of parameter
@@ -190,9 +196,36 @@ def optimize_method_with_optuna(method_name, param_grid, filtered_events, settin
 
         try:
             candidates, _ = func(filtered_events, settings, **kwargs)
-            score = len(candidates) if candidates is not None else 0
+            
+            if scoring_method == 'count':
+                score = len(candidates) if candidates is not None else 0
+            else:
+                if not candidates or len(candidates) == 0:
+                    score = 0
+                else:
+                    # Collect all events from candidates
+                    all_dfs = [c['events'] for c in candidates.values() if 'events' in c]
+                    if not all_dfs:
+                        score = 0
+                    else:
+                        combined_df = pd.concat(all_dfs)
+                        # Analysis scripts expect a record array or similar that supports ev['x']
+                        ev_rec = combined_df.to_records(index=False)
+                        
+                        # Default resolutions
+                        x_res = 941
+                        y_res = 483
+                        
+                        if scoring_method == 'areaOfContinuousContrast':
+                            _, results = areaOfContinuousContrast.run_analysis(ev_rec, x_res=x_res, y_res=y_res)
+                            score = results.get('area', 0)
+                        elif scoring_method == 'eventStructuraRatio':
+                            _, results = eventStructuraRatio.run_analysis(ev_rec, x_res, y_res)
+                            score = results.get('score', 0)
+                        else:
+                            score = len(candidates)
         except Exception as e:
-            logging.debug(f"Trial failed for {method_name}: {e}")
+            logging.exception(f"Trial failed for {method_name}: {e}")
             score = -1
 
         return score
@@ -279,7 +312,7 @@ def preview_run(npy_array, settings, time_stretch=None, xy_stretch=None):
     
     return best_method, best_params
 
-def search_run_optuna(npy_array, settings, time_stretch=None, xy_stretch=None, n_trials=200, n_jobs=1):
+def search_run_optuna(npy_array, settings, time_stretch=None, xy_stretch=None, n_trials=200, n_jobs=1, scoring_method='count'):
     """
     Runs hyperparameter search using Optuna's Bayesian optimization (TPE sampler).
 
@@ -291,6 +324,7 @@ def search_run_optuna(npy_array, settings, time_stretch=None, xy_stretch=None, n
         n_trials: Number of trials per method (default 200).
         n_jobs: Number of parallel jobs for running multiple methods (default 1).
                 Set to -1 to use all cores, or a specific number to limit.
+        scoring_method: Method to score the run ('count', 'areaOfContinuousContrast', 'eventStructuraRatio')
 
     Returns:
         (best_method, best_params): The best method name and its optimized parameters.
@@ -312,7 +346,7 @@ def search_run_optuna(npy_array, settings, time_stretch=None, xy_stretch=None, n
         print(f"Optimizing {len(all_grids)} methods in parallel with n_jobs={n_jobs}...")
         results = Parallel(n_jobs=n_jobs)(
             delayed(optimize_method_with_optuna)(
-                method_name, param_grid, filtered_events, settings, n_trials
+                method_name, param_grid, filtered_events, settings, n_trials, scoring_method
             )
             for method_name, param_grid in all_grids.items()
         )
@@ -322,7 +356,7 @@ def search_run_optuna(npy_array, settings, time_stretch=None, xy_stretch=None, n
         for i, (method_name, param_grid) in enumerate(all_grids.items(), 1):
             print(f"[{i}/{len(all_grids)}] Optimizing {method_name}...")
             score, params, method = optimize_method_with_optuna(
-                method_name, param_grid, filtered_events, settings, n_trials
+                method_name, param_grid, filtered_events, settings, n_trials, scoring_method
             )
             results.append((score, params, method))
             print(f"      Best score: {score} with {len(params)} parameters")

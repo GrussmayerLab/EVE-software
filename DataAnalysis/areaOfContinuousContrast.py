@@ -100,7 +100,7 @@ def compute_single_interval(args):
     return {'interval': interval, 'mean_contrast': mean_val}
 
 
-def run_analysis(ev, x_res=256, y_res=256, min_interval=None, max_interval=None, step_interval=None):
+def run_analysis(ev, x_res=256, y_res=256, min_interval=60000, max_interval=10000000, step_interval=None):
     """
     Run the area of continuous contrast analysis optimized for memory usage.
     """
@@ -181,6 +181,7 @@ def run_analysis(ev, x_res=256, y_res=256, min_interval=None, max_interval=None,
     plt.grid(True)
     
     area = trapezoid(results['mean_contrast'], results['interval'])
+    print(f"Area of Continuous Contrast: {area}")
     return plt.gcf(), {
         'area': area,
         'curve_x': results['interval'].tolist(),
