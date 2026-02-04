@@ -255,14 +255,16 @@ def optimize_method_with_optuna(method_name, param_grid, filtered_events, settin
         study = optuna.load_study(
             study_name=study_name, 
             storage=storage_url,
-            sampler=optuna.samplers.TPESampler(seed=42)
+            sampler=optuna.samplers.TPESampler(seed=42),
+            pruner=optuna.pruners.MedianPruner()
         )
     else:
         # Fallback for standalone usage or if arguments not provided
         study = optuna.create_study(
             direction="maximize",
             sampler=optuna.samplers.TPESampler(seed=42),
-            storage="sqlite:///db.sqlite3"
+            storage="sqlite:///db.sqlite3",
+            pruner=optuna.pruners.MedianPruner()
         )
 
     # Suppress Optuna's verbose output
@@ -399,7 +401,8 @@ def search_run_optuna(npy_array, settings, time_stretch=None, xy_stretch=None, n
             study_name=unique_name,
             storage=storage_url,
             direction="maximize",
-            sampler=optuna.samplers.TPESampler(seed=42)
+            sampler=optuna.samplers.TPESampler(seed=42),
+            pruner=optuna.pruners.MedianPruner()
         )
         study_names[m_name] = unique_name
 
