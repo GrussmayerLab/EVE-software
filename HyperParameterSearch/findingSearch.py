@@ -5,6 +5,7 @@ import logging
 import numpy as np
 import optuna
 import pandas as pd
+import uuid
 from DataAnalysis import areaOfContinuousContrast, eventStructuraRatio
 
 # Add parent directory to path to allow imports
@@ -142,7 +143,8 @@ def evaluate_params(method_name, func, kwargs, events, settings):
         logging.error(f"Error running {method_name} with {kwargs}: {e}")
         return -1, kwargs, method_name
 
-def optimize_method_with_optuna(method_name, param_grid, filtered_events, settings, n_trials=200, scoring_method='count'):
+def optimize_method_with_optuna(method_name, param_grid, filtered_events, settings, n_trials=200, scoring_method='count', storage_url=None, study_name=None):
+
     """
     Use Optuna to optimize parameters for a single method using Bayesian optimization.
 
@@ -241,11 +243,27 @@ def optimize_method_with_optuna(method_name, param_grid, filtered_events, settin
 
         return score
 
-    # Create study with TPE sampler for Bayesian optimization
-    study = optuna.create_study(
-        direction="maximize",
-        sampler=optuna.samplers.TPESampler(seed=42)
-    )
+    # storage_url = "sqlite:///db.sqlite3"
+    # # Create study with TPE sampler for Bayesian optimization
+    # study = optuna.create_study(
+    #     direction="maximize",
+    #     sampler=optuna.samplers.TPESampler(seed=42),
+    #     storage=storage_url
+    # )
+    
+    if storage_url is not None and study_name is not None:
+        study = optuna.load_study(
+            study_name=study_name, 
+            storage=storage_url,
+            sampler=optuna.samplers.TPESampler(seed=42)
+        )
+    else:
+        # Fallback for standalone usage or if arguments not provided
+        study = optuna.create_study(
+            direction="maximize",
+            sampler=optuna.samplers.TPESampler(seed=42),
+            storage="sqlite:///db.sqlite3"
+        )
 
     # Suppress Optuna's verbose output
     optuna.logging.set_verbosity(optuna.logging.WARNING)
@@ -370,11 +388,26 @@ def search_run_optuna(npy_array, settings, time_stretch=None, xy_stretch=None, n
 
     all_grids = {**DBSCAN_GRID, **EIGEN_GRID}
 
+    storage_url = "sqlite:///db.sqlite3"
+    study_names = {}
+    
+    # Pre-create studies sequentially to avoid SQLite locking issues in parallel execution
+    print("Initializing Optuna studies...")
+    for m_name in all_grids.keys():
+        unique_name = f"{m_name}_{uuid.uuid4().hex[:8]}"
+        optuna.create_study(
+            study_name=unique_name,
+            storage=storage_url,
+            direction="maximize",
+            sampler=optuna.samplers.TPESampler(seed=42)
+        )
+        study_names[m_name] = unique_name
+
     if n_jobs != 1:
         print(f"Optimizing {len(all_grids)} methods in parallel with n_jobs={n_jobs}...")
         results = Parallel(n_jobs=n_jobs)(
             delayed(optimize_method_with_optuna)(
-                method_name, param_grid, filtered_events, settings, n_trials, scoring_method
+                method_name, param_grid, filtered_events, settings, n_trials, scoring_method, storage_url, study_names[method_name]
             )
             for method_name, param_grid in all_grids.items()
         )
@@ -384,7 +417,7 @@ def search_run_optuna(npy_array, settings, time_stretch=None, xy_stretch=None, n
         for i, (method_name, param_grid) in enumerate(all_grids.items(), 1):
             print(f"[{i}/{len(all_grids)}] Optimizing {method_name}...")
             score, params, method = optimize_method_with_optuna(
-                method_name, param_grid, filtered_events, settings, n_trials, scoring_method
+                method_name, param_grid, filtered_events, settings, n_trials, scoring_method, storage_url, study_names[method_name]
             )
             results.append((score, params, method))
             print(f"      Best score: {score} with {len(params)} parameters")
