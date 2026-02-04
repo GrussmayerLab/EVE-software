@@ -14,3 +14,4 @@ build\*
 /PyPI/v011
 /PyPI
 /dist
+*.sqlite3
