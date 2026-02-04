@@ -4,7 +4,7 @@
 #Imports for PyQt5 (GUI)
 from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtGui import QCursor, QTextCursor, QIntValidator, QColor
-from PyQt5.QtWidgets import QApplication, QHBoxLayout, QVBoxLayout, QTableWidget, QTableWidgetItem, QLayout, QMainWindow, QLabel, QPushButton, QSizePolicy, QGroupBox, QTabWidget, QGridLayout, QWidget, QComboBox, QLineEdit, QFileDialog, QToolBar, QCheckBox,QDesktopWidget, QMessageBox, QTextEdit, QSlider, QSpacerItem, QTableView, QFrame, QScrollArea, QProgressBar, QMenu, QMenuBar, QColorDialog
+from PyQt5.QtWidgets import QApplication, QHBoxLayout, QVBoxLayout, QTableWidget, QTableWidgetItem, QLayout, QMainWindow, QLabel, QPushButton, QSizePolicy, QGroupBox, QTabWidget, QGridLayout, QWidget, QComboBox, QLineEdit, QFileDialog, QToolBar, QCheckBox,QDesktopWidget, QMessageBox, QTextEdit, QSlider, QSpacerItem, QTableView, QFrame, QScrollArea, QProgressBar, QMenu, QMenuBar, QColorDialog, QDialog
 from PyQt5.QtCore import Qt, QPoint, QProcess, QCoreApplication, QTimer, QFileSystemWatcher, QFile, QThread, pyqtSignal, QObject
 import sys
 import typing
@@ -90,6 +90,81 @@ except ImportError:
 # -----------------------------------------------------------------------------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------------------------------------------------------------------------
     
+
+class SearchResultsDialog(QDialog):
+    def __init__(self, best_method, best_params, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Hyperparameter Search Results")
+        self.best_method = best_method
+        self.best_params = best_params
+        self.parent = parent
+        
+        layout = QVBoxLayout()
+        
+        # Header
+        header = QLabel("<h3>Hyperparameter Search Results</h3>")
+        layout.addWidget(header)
+        
+        # Results Display
+        self.text_edit = QTextEdit()
+        self.text_edit.setReadOnly(True)
+        msg = f"<b>Best Method:</b> {best_method}<br><br><b>Best Params:</b><br>"
+        for k, v in best_params.items():
+            msg += f"&nbsp;&nbsp;&bull; <b>{k}:</b> {v}<br>"
+        self.text_edit.setHtml(msg)
+        layout.addWidget(self.text_edit)
+        
+        # Buttons
+        buttons_layout = QHBoxLayout()
+        
+        self.use_params_btn = QPushButton("USE PARAMETERS")
+        self.use_params_btn.setToolTip("Apply these parameters to the finding algorithms in the GUI")
+        self.use_params_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 5px;")
+        self.use_params_btn.clicked.connect(self.use_parameters)
+        buttons_layout.addWidget(self.use_params_btn)
+        
+        self.dashboard_btn = QPushButton("Check Optuna Dashboard")
+        self.dashboard_btn.setToolTip("Launch the Optuna Dashboard to visualize the search trials")
+        self.dashboard_btn.clicked.connect(self.open_dashboard)
+        buttons_layout.addWidget(self.dashboard_btn)
+        
+        self.close_btn = QPushButton("Close")
+        self.close_btn.clicked.connect(self.accept)
+        buttons_layout.addWidget(self.close_btn)
+        
+        layout.addLayout(buttons_layout)
+        self.setLayout(layout)
+        self.resize(600, 450)
+
+    def open_dashboard(self):
+        import subprocess
+        import os
+        
+        # Try to find the optuna-dashboard executable in the same directory as the python interpreter
+        python_bin_dir = os.path.dirname(sys.executable)
+        dashboard_exe = os.path.join(python_bin_dir, "optuna-dashboard")
+        
+        # If not found or if on Windows (where it might be .exe or in Scripts)
+        if not os.path.exists(dashboard_exe):
+            if os.path.exists(os.path.join(python_bin_dir, "optuna-dashboard.exe")):
+                dashboard_exe = os.path.join(python_bin_dir, "optuna-dashboard.exe")
+            elif os.path.exists(os.path.join(python_bin_dir, "Scripts", "optuna-dashboard.exe")):
+                dashboard_exe = os.path.join(python_bin_dir, "Scripts", "optuna-dashboard.exe")
+            else:
+                dashboard_exe = "optuna-dashboard" # Fallback to PATH
+
+        try:
+            # Run optuna-dashboard in the background
+            subprocess.Popen([dashboard_exe, "sqlite:///db.sqlite3"])
+            QMessageBox.information(self, "Optuna Dashboard", "Optuna Dashboard is starting.<br>If it doesn't open automatically, visit: <a href='http://127.0.0.1:8080'>http://127.0.0.1:8080</a>")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Could not start Optuna Dashboard: {e}")
+
+    def use_parameters(self):
+        if self.parent:
+            self.parent.apply_search_results(self.best_method, self.best_params)
+            self.accept()
+
 class MyGUI(QMainWindow):
 #GUI class - needs to be initialised and is initalised in gui.py
     def __init__(self):
@@ -1041,12 +1116,61 @@ class MyGUI(QMainWindow):
 
         
         if best_method:
-            msg = f"Best Method: {best_method}\nBest Params: {best_params}"
-            logging.info(msg)
-            QMessageBox.information(self, "Parameter Search Results", msg)
+            dialog = SearchResultsDialog(best_method, best_params, self)
+            dialog.exec_()
         else:
             logging.warning("Parameter search failed to find a best method.")
             QMessageBox.warning(self, "Parameter Search Results", "Parameter search failed.")
+
+    def apply_search_results(self, best_method, best_params):
+        """
+        Applies the best method and parameters found during hyperparameter search to the GUI.
+        """
+        logging.info(f"Applying search results: {best_method}")
+        polarities = ['Pos', 'Neg', 'Mix']
+        for pol in polarities:
+            try:
+                dropdown = getattr(self, f"CandidateFindingDropdown{pol}")
+                mapping = getattr(self, f"Finding_functionNameToDisplayNameMapping{pol}")
+                
+                # Find display name for best_method
+                display_name = None
+                for d_name, f_name in mapping:
+                    if f_name == best_method:
+                        display_name = d_name
+                        break
+                
+                if display_name:
+                    dropdown.setCurrentText(display_name)
+                    # Trigger layout change
+                    groupbox_layout = getattr(self, f"groupboxFinding{pol}").layout()
+                    dropdown_name = f"CandidateFindingDropdown{pol}"
+                    utils.changeLayout_choice(groupbox_layout, dropdown_name, mapping, parent=self)
+                    
+                    # Set parameter values
+                    for param_name, value in best_params.items():
+                        # The object names created by utils.changeLayout_choice
+                        # follow the pattern: {WidgetType}#{MethodName}#{ParamName}#{Polarity}
+                        
+                        # Try LineEdit first
+                        obj_name = f"LineEdit#{best_method}#{param_name}#{pol.lower()}"
+                        widget = self.findChild(QLineEdit, obj_name)
+                        if widget:
+                            widget.setText(str(value))
+                            continue
+                            
+                        # Try ComboBox (for dropdown parameters)
+                        obj_name = f"ComboBox#{best_method}#{param_name}#{pol.lower()}"
+                        widget = self.findChild(QComboBox, obj_name)
+                        if widget:
+                            index = widget.findText(str(value))
+                            if index >= 0:
+                                widget.setCurrentIndex(index)
+                            continue
+                else:
+                    logging.warning(f"Could not find display name for {best_method} in {pol} mapping")
+            except Exception as e:
+                logging.error(f"Failed to apply parameters to {pol}: {e}")
 
     def load_events_for_search(self, use_preview_range=True, start_ms=None, duration_ms=None, xy=None, limit_chunks=None):
         """
@@ -1183,9 +1307,8 @@ class MyGUI(QMainWindow):
                                                                        n_jobs=4, scoring_method=scoring_method)
 
             if best_method:
-                msg = f"Best Method: {best_method}\nBest Params: {best_params}"
-                logging.info(msg)
-                QMessageBox.information(self, "Hyperparameter Search Results", msg)
+                dialog = SearchResultsDialog(best_method, best_params, self)
+                dialog.exec_()
             else:
                 logging.warning("Hyperparameter search failed to find a best method.")
                 QMessageBox.warning(self, "Hyperparameter Search Results", "Hyperparameter search failed.")
