@@ -20,52 +20,52 @@ DBSCAN_EPS_RANGE = [4, 5, 6, 7, 8, 9, 10]
 
 DBSCAN_GRID = {
     "DBSCAN.DBSCAN_onlyHighDensity": {
-        "distance_radius_lookup": [4, 6, 8, 10, 12],
-        "density_multiplier": [1.2, 1.5, 1.8, 2.1, 2.4, 2.7, 3.0],
-        "min_cluster_size": [10, 15, 20, 25, 30, 35, 40],
-        "ratio_ms_to_px": RATIO_RANGE,
-        "DBSCAN_eps": DBSCAN_EPS_RANGE,
-        "min_consec": [1, 2, 3, 4, 5],
+        "distance_radius_lookup": {"min": 4, "max": 12, "step": 2, "type": "int"},
+        "density_multiplier": {"min": 1.2, "max": 3.0, "type": "float"},
+        "min_cluster_size": {"min": 5, "max": 100, "log": True, "type": "int"},
+        "ratio_ms_to_px": {"min": 15.0, "max": 45.0, "type": "float"},
+        "DBSCAN_eps": {"min": 2.0, "max": 10.0, "type": "float"},
+        "min_consec": {"min": 1, "max": 5, "type": "int"},
     },
     "DBSCAN.DBSCAN_allEvents": {
-        "distance_radius_lookup": [4, 6, 8, 10, 12],
-        "density_multiplier": [1.2, 1.5, 1.8, 2.1, 2.4, 2.7, 3.0],
-        "min_cluster_size": [10, 15, 20, 25, 30, 35, 40],
-        "ratio_ms_to_px": RATIO_RANGE,
-        "DBSCAN_eps": DBSCAN_EPS_RANGE,
-        "padding_xy": [0, 1, 2, 3, 4],
-        "min_consec": [1, 2, 3, 4, 5],
+        "distance_radius_lookup": {"min": 4, "max": 12, "step": 2, "type": "int"},
+        "density_multiplier": {"min": 1.2, "max": 3.0, "type": "float"},
+        "min_cluster_size": {"min": 5, "max": 100, "log": True, "type": "int"},
+        "ratio_ms_to_px": {"min": 15.0, "max": 45.0, "type": "float"},
+        "DBSCAN_eps": {"min": 2.0, "max": 10.0, "type": "float"},
+        "padding_xy": {"min": 0, "max": 4, "type": "int"},
+        "min_consec": {"min": 1, "max": 5, "type": "int"},
     },
     "DBSCAN.DBSCAN_allEvents_remove_outliers": {
-        "distance_radius_lookup": [4, 6, 8, 10, 12],
-        "density_multiplier": [1.2, 1.5, 1.8, 2.1, 2.4, 2.7, 3.0],
-        "min_cluster_size": [10, 15, 20, 25, 30, 35, 40],
-        "ratio_ms_to_px": RATIO_RANGE,
-        "DBSCAN_eps": DBSCAN_EPS_RANGE,
-        "padding_xy": [0, 1, 2, 3, 4],
-        "outlier_removal_radius": [2, 3, 4, 5, 6],
-        "outlier_removal_nbPoints": [20, 30, 40, 50, 60],
-        "min_consec": [1, 2, 3, 4, 5],
+        "distance_radius_lookup": {"min": 4, "max": 12, "step": 2, "type": "int"},
+        "density_multiplier": {"min": 1.2, "max": 3.0, "type": "float"},
+        "min_cluster_size": {"min": 5, "max": 100, "log": True, "type": "int"},
+        "ratio_ms_to_px": {"min": 15.0, "max": 45.0, "type": "float"},
+        "DBSCAN_eps": {"min": 2.0, "max": 10.0, "type": "float"},
+        "padding_xy": {"min": 0, "max": 4, "type": "int"},
+        "outlier_removal_radius": {"min": 2.0, "max": 6.0, "type": "float"},
+        "outlier_removal_nbPoints": {"min": 20, "max": 60, "type": "int"},
+        "min_consec": {"min": 1, "max": 5, "type": "int"},
     },
 }
 
 EIGEN_GRID = {
     "EigenFeatureAnalysis.eigenFeature_analysis": {
-        "search_n_neighbours": [30, 45, 60, 75, 90, 105, 120],
-        "max_eigenval_cutoff": [0.0, 3.0, 5.0, 7.0, 9.0],
-        "linearity_cutoff": [0.5, 0.6, 0.7, 0.8, 0.85],
-        "ratio_ms_to_px": [15.0, 20.0, 25.0, 30.0, 35.0],
-        "DBSCAN_eps": [2, 3, 4, 5, 6],
-        "DBSCAN_n_neighbours": [15, 20, 25, 30, 35],
+        "search_n_neighbours": {"min": 30, "max": 120, "step": 5, "type": "int"},
+        "max_eigenval_cutoff": {"min": 0.0, "max": 9.0, "type": "float"},
+        "linearity_cutoff": {"min": 0.5, "max": 0.85, "type": "float"},
+        "ratio_ms_to_px": {"min": 15.0, "max": 45.0, "type": "float"},
+        "DBSCAN_eps": {"min": 2.0, "max": 6.0, "type": "float"},
+        "DBSCAN_n_neighbours": {"min": 15, "max": 35, "type": "int"},
     },
     "EigenFeatureAnalysis.eigenFeature_analysis_and_bbox_finding": {
-        "search_n_neighbours": [30, 45, 60, 75, 90, 105, 120],
-        "max_eigenval_cutoff": [0.0, 3.0, 5.0, 7.0, 9.0],
-        "linearity_cutoff": [0.5, 0.6, 0.7, 0.8, 0.85],
-        "ratio_ms_to_px": [15.0, 20.0, 25.0, 30.0, 35.0],
-        "DBSCAN_eps": [2, 3, 4, 5, 6],
-        "DBSCAN_n_neighbours": [15, 20, 25, 30, 35],
-        "bbox_padding": [0, 1, 2, 3],
+        "search_n_neighbours": {"min": 30, "max": 120, "step": 5, "type": "int"},
+        "max_eigenval_cutoff": {"min": 0.0, "max": 9.0, "type": "float"},
+        "linearity_cutoff": {"min": 0.5, "max": 0.85, "type": "float"},
+        "ratio_ms_to_px": {"min": 15.0, "max": 45.0, "type": "float"},
+        "DBSCAN_eps": {"min": 2.0, "max": 6.0, "type": "float"},
+        "DBSCAN_n_neighbours": {"min": 15, "max": 35, "type": "int"},
+        "bbox_padding": {"min": 0, "max": 3, "type": "int"},
     },
 }
 
@@ -168,30 +168,41 @@ def optimize_method_with_optuna(method_name, param_grid, filtered_events, settin
         kwargs['debug'] = 'False'
         
         for param_name, param_values in param_grid.items():
-            if isinstance(param_values, list):
-                # Determine the type of parameter
+            if isinstance(param_values, dict) and 'min' in param_values:
+                # Handle range definition
+                low = param_values['min']
+                high = param_values['max']
+                step = param_values.get('step', None)
+                log = param_values.get('log', False)
+                p_type = param_values.get('type', 'float')
+
+                if p_type == 'int':
+                    # suggest_int requires step to be a valid integer if provided, defaulting to 1
+                    effective_step = step if step is not None else 1
+                    # If log=True, step is usually ignored or must be 1 (depending on Optuna version), enforce 1 to be safe
+                    if log:
+                        effective_step = 1
+                    kwargs[param_name] = trial.suggest_int(param_name, low, high, step=effective_step, log=log)
+                else:
+                    kwargs[param_name] = trial.suggest_float(param_name, low, high, step=step, log=log)
+            elif isinstance(param_values, list):
+                # Backwards compatibility for lists (e.g., FRAME_GRID)
                 if all(isinstance(v, (int, np.integer)) for v in param_values):
                     # Integer parameter
                     if len(set(param_values)) <= 10:
-                        # Use categorical for small discrete sets
                         kwargs[param_name] = trial.suggest_categorical(param_name, param_values)
                     else:
-                        # Use int range for larger sets
                         min_val, max_val = min(param_values), max(param_values)
-                        # Try to detect step
                         sorted_vals = sorted(set(param_values))
                         step = sorted_vals[1] - sorted_vals[0] if len(sorted_vals) > 1 else 1
                         kwargs[param_name] = trial.suggest_int(param_name, min_val, max_val, step=step)
                 elif all(isinstance(v, (float, np.floating)) for v in param_values):
                     # Float parameter
                     if len(set(param_values)) <= 10:
-                        # Use categorical for small discrete sets
                         kwargs[param_name] = trial.suggest_categorical(param_name, param_values)
                     else:
-                        # Use float range for larger sets
                         kwargs[param_name] = trial.suggest_float(param_name, min(param_values), max(param_values))
                 else:
-                    # Mixed types or other - use categorical
                     kwargs[param_name] = trial.suggest_categorical(param_name, param_values)
 
         try:
@@ -277,9 +288,26 @@ def preview_run(npy_array, settings, time_stretch=None, xy_stretch=None):
             continue
             
         # Generate parameter combinations
-        keys = param_grid.keys()
-        values = param_grid.values()
-        combinations = list(itertools.product(*values))
+        keys = []
+        values_lists = []
+        for p, v in param_grid.items():
+            keys.append(p)
+            if isinstance(v, dict) and 'min' in v:
+                # Create a simple grid for preview
+                # We interpret the range by taking 3 samples (min, mid, max) to keep it fast
+                if v.get('type') == 'int':
+                    steps = 3
+                    if v.get('max') - v.get('min') < 3:
+                        steps = v.get('max') - v.get('min') + 1
+                    vals = np.linspace(v['min'], v['max'], int(steps))
+                    vals = np.unique(np.round(vals).astype(int))
+                else:
+                    vals = np.linspace(v['min'], v['max'], 3)
+                values_lists.append(vals.tolist())
+            else:
+                values_lists.append(v)
+        
+        combinations = list(itertools.product(*values_lists))
         
         for combination in combinations:
             kwargs = dict(zip(keys, combination))
