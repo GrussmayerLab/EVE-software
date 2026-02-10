@@ -13,3 +13,4 @@ build\*
 /PyPI/v011
 /PyPI
 /dist
+/.idea
