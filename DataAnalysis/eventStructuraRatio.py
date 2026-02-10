@@ -8,8 +8,8 @@ def __function_metadata__():
             'display_name': 'Event Structural Ratio',
             'help_string': 'Calculate the event structural ratio for a given event dataset',
             'required_kwargs': [
-                {'name': 'x_res', 'type': int, 'default': 0, 'description': 'Sensor resolution (X-Axis) in microns.'},
-                {'name': 'y_res', 'type': int, 'default': 0, 'description': 'Sensor resolution (Y-Axis) in microns.'},
+                {'name': 'x_res', 'type': int, 'default': 941, 'description': 'Sensor resolution (X-Axis) in microns.'},
+                {'name': 'y_res', 'type': int, 'default': 483, 'description': 'Sensor resolution (Y-Axis) in microns.'},
                 {'name': 'refN', 'type': int, 'default': 800000, 'description': 'Reference number of events for interpolation'},
                 {'name': 'count', 'type': int, 'default': 1000000, 'description': 'Number of events in the dataset'}
             ],
@@ -17,16 +17,16 @@ def __function_metadata__():
         }
     }
 
-def run_analysis(ev, x_res, y_res, count=800000, refN=1000000):
+def run_analysis(ev, x_res, y_res, count=30000, refN=20000):
     count = int(count)
     refN = int(refN)
     x_res = int(x_res)
     y_res = int(y_res)
 
-    # # Auto-adjust resolution if events are out of bounds
-    # if len(ev) > 0:
-    #     x_res = max(x_res, int(ev['x'].max()) + 1)
-    #     y_res = max(y_res, int(ev['y'].max()) + 1)
+    # Auto-adjust resolution if events are out of bounds
+    if len(ev) > 0:
+        x_res = max(x_res, int(ev['x'].max()) + 1)
+        y_res = max(y_res, int(ev['y'].max()) + 1)
     print(ev.shape)
     if len(ev) < 2 * count: 
         fig = plt.figure()
