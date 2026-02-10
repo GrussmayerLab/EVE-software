@@ -37,67 +37,69 @@ def __function_metadata__():
         }
     }
 
-def compute_single_interval(args):
+def compute_interval_batch(args):
     """
-    Worker function to process a single interval.
-    Args now only contain metadata. Data is accessed via worker_data.
+    Worker function to process a batch of intervals.
+    Args: (intervals_chunk, width, height)
     """
-    interval, width, height = args
+    intervals_chunk, width, height = args
     
     # Retrieve data from global storage (zero copy)
     t = worker_data['t']
     x = worker_data['x']
     y = worker_data['y']
     
-    # 1. Define Time Bins
     t_start, t_end = t[0], t[-1]
     
-    # RAM OPTIMIZATION: Instead of np.digitize (which allocates len(t) ints),
-    # use searchsorted because 't' is already sorted.
-    # This keeps memory usage near zero for the slicing logic.
-    bins = np.arange(t_start, t_end + interval, interval)
+    results = []
     
-    # Find indices where time bins start/end
-    # This is much faster and lighter than digitize for sorted data
-    idx_bounds = np.searchsorted(t, bins)
-    
-    contrasts = []
-    
-    # 2. Process each frame using slices
-    # Iterate through the bins defined by indices
-    for i in range(len(idx_bounds) - 1):
-        start_idx = idx_bounds[i]
-        end_idx = idx_bounds[i+1]
+    for interval in intervals_chunk:
+        # 1. Define Time Bins
+        # RAM OPTIMIZATION: Instead of np.digitize, use searchsorted
+        bins = np.arange(t_start, t_end + interval, interval)
         
-        # Skip empty frames
-        if start_idx == end_idx:
-            continue
+        # Find indices where time bins start/end
+        idx_bounds = np.searchsorted(t, bins)
+        
+        contrasts = []
+        
+        # 2. Process each frame using slices
+        for i in range(len(idx_bounds) - 1):
+            start_idx = idx_bounds[i]
+            end_idx = idx_bounds[i+1]
             
-        # Create views (zero copy) of the current frame's events
-        x_slice = x[start_idx:end_idx]
-        y_slice = y[start_idx:end_idx]
-        
-        # Fast histogram
-        img, _, _ = np.histogram2d(y_slice, x_slice, 
-                                   bins=[height, width], 
-                                   range=[[0, height], [0, width]])
-        
-        # Convert to boolean contrast map
-        img = (img > 0).astype(np.float32) * 255
+            # Skip empty frames
+            if start_idx == end_idx:
+                continue
+                
+            # Create views (zero copy) of the current frame's events
+            x_slice = x[start_idx:end_idx]
+            y_slice = y[start_idx:end_idx]
+            
+            # Fast histogram
+            img, _, _ = np.histogram2d(y_slice, x_slice, 
+                                       bins=[height, width], 
+                                       range=[[0, height], [0, width]])
+            
+            # Convert to boolean contrast map
+            img = (img > 0).astype(np.float32) * 255
 
-        # 3. Contrast Calculation
-        blurred = gaussian_filter(img, sigma=2)
-        grad_x = sobel(blurred, axis=1)
-        grad_y = sobel(blurred, axis=0)
-        magnitude = np.hypot(grad_x, grad_y)
-        contrasts.append(np.std(magnitude))
-        del img, blurred, grad_x, grad_y, magnitude  # attempt to free memory
+            # 3. Contrast Calculation
+            blurred = gaussian_filter(img, sigma=2)
+            grad_x = sobel(blurred, axis=1)
+            grad_y = sobel(blurred, axis=0)
+            magnitude = np.hypot(grad_x, grad_y)
+            contrasts.append(np.std(magnitude))
+            # cleanup per frame
+            del img, blurred, grad_x, grad_y, magnitude 
 
-    mean_val = np.mean(contrasts) if contrasts else 0.0
-    contrasts.clear()  # free memory
-    gc.collect() # force garbage collection to free memory immediately
+        mean_val = np.mean(contrasts) if contrasts else 0.0
+        results.append({'interval': interval, 'mean_contrast': mean_val})
+    
+    # Run GC once per batch instead of per interval
+    gc.collect()
 
-    return {'interval': interval, 'mean_contrast': mean_val}
+    return results
 
 
 def run_analysis(ev, x_res=256, y_res=256, min_interval=None, max_interval=None, step_interval=None):
@@ -137,7 +139,7 @@ def run_analysis(ev, x_res=256, y_res=256, min_interval=None, max_interval=None,
         max_interval = int(max_interval)
         
     if step_interval is None:
-        step_interval = int((max_interval - min_interval) / 5)
+        step_interval = int((max_interval - min_interval) / 100)
         step_interval = max(100, step_interval)
     else:
         step_interval = int(step_interval)
@@ -152,20 +154,32 @@ def run_analysis(ev, x_res=256, y_res=256, min_interval=None, max_interval=None,
     
     # MEMORY FIX: Only pass metadata in the tasks list
     # t, x, y are NOT passed here
-    tasks = [(iv, x_res, y_res) for iv in intervals]
+    
+    # Create batches of tasks to reduce IPC overhead
+    num_workers = os.cpu_count()
+    total_intervals = len(intervals)
+    # Heuristic: 50 batches per worker to balance load allowing work stealing if needed,
+    # but kept reasonable to avoid IPC overhead
+    min_batch_size = 10
+    batch_size = max(min_batch_size, int(total_intervals / (num_workers * 10))) 
+    
+    tasks = []
+    for i in range(0, total_intervals, batch_size):
+        chunk = intervals[i : i + batch_size]
+        tasks.append((chunk, x_res, y_res))
     
     results_list = []
     
-    # Use max_workers to limit concurrent processes (optional, defaults to CPU count)
-    # Using slightly fewer workers than CPU count can sometimes help with RAM if dataset is massive
-    num_workers = os.cpu_count()
-    print(f"Starting parallel processing with {num_workers} workers...")
+    print(f"Starting parallel processing with {num_workers} workers (Batch size: {batch_size}, Total batches: {len(tasks)})...")
     
     with ProcessPoolExecutor(max_workers=num_workers, 
                              initializer=init_worker, 
                              initargs=(t, x, y)) as executor:
-        results_gen = executor.map(compute_single_interval, tasks)
-        results_list = list(results_gen)
+        results_gen = executor.map(compute_interval_batch, tasks)
+        
+        # Flatten the list of lists
+        for batch_result in results_gen:
+            results_list.extend(batch_result)
 
     results = pd.DataFrame(results_list)
     results = results.sort_values('interval')
