@@ -6,6 +6,7 @@ from scipy.ndimage import gaussian_filter, sobel
 import os
 import gc
 from concurrent.futures import ProcessPoolExecutor
+import random
 
 # --- Global container for worker processes ---
 # This ensures data is not pickled/copied for every single task
@@ -26,8 +27,8 @@ def __function_metadata__():
             'display_name': 'Area of Continuous Contrast',
             'help_string': 'Calculate the area of continuous contrast for a given event dataset',
             'required_kwargs': [
-                {'name': 'x_res', 'type': int, 'default': 0, 'description': 'Sensor resolution (X-Axis) in microns.'},
-                {'name': 'y_res', 'type': int, 'default': 0, 'description': 'Sensor resolution (Y-Axis) in microns.'}
+                {'name': 'x_res', 'type': int, 'default': 1043, 'description': 'Sensor resolution (X-Axis) in microns.'},
+                {'name': 'y_res', 'type': int, 'default': 405, 'description': 'Sensor resolution (Y-Axis) in microns.'}
             ],
             'optional_kwargs': [
                 {'name': 'min_interval', 'type': int, 'default': 10000, 'description': 'Min interval (default: auto)'},
@@ -76,29 +77,41 @@ def compute_interval_batch(args):
             x_slice = x[start_idx:end_idx]
             y_slice = y[start_idx:end_idx]
             
-            # Fast histogram
-            img, _, _ = np.histogram2d(y_slice, x_slice, 
-                                       bins=[height, width], 
-                                       range=[[0, height], [0, width]])
-            
-            # Convert to boolean contrast map
-            img = (img > 0).astype(np.float32) * 255
+            # Fast histogram using bincount (approx 10x faster than histogram2d)
+            # Filter out-of-bounds events first (histogram2d does this implicitly via range)
+            mask = (x_slice >= 0) & (x_slice < width) & (y_slice >= 0) & (y_slice < height)
+            if not mask.all():
+                x_s = x_slice[mask]
+                y_s = y_slice[mask]
+            else:
+                x_s = x_slice
+                y_s = y_slice
 
-            # 3. Contrast Calculation
-            blurred = gaussian_filter(img, sigma=2)
-            grad_x = sobel(blurred, axis=1)
-            grad_y = sobel(blurred, axis=0)
-            magnitude = np.hypot(grad_x, grad_y)
-            contrasts.append(np.std(magnitude))
-            # cleanup per frame
-            del img, blurred, grad_x, grad_y, magnitude 
+            if len(x_s) > 0:
+                flat_indices = y_s * width + x_s
+                # bincount is much faster
+                img_flat = np.bincount(flat_indices, minlength=width*height)
+                img = img_flat.reshape((height, width))
+                
+                # Convert to boolean contrast map
+                img = (img > 0).astype(np.float32) * 255
+
+                # 3. Contrast Calculation
+                blurred = gaussian_filter(img, sigma=2)
+                grad_x = sobel(blurred, axis=1)
+                grad_y = sobel(blurred, axis=0)
+                magnitude = np.hypot(grad_x, grad_y)
+                contrasts.append(np.std(magnitude))
+                
+                # cleanup per frame
+                del img, blurred, grad_x, grad_y, magnitude
+            else:
+                # No events in this frame (or all were out of bounds)
+                contrasts.append(0.0)
 
         mean_val = np.mean(contrasts) if contrasts else 0.0
         results.append({'interval': interval, 'mean_contrast': mean_val})
     
-    # Run GC once per batch instead of per interval
-    gc.collect()
-
     return results
 
 
@@ -114,16 +127,16 @@ def run_analysis(ev, x_res=256, y_res=256, min_interval=None, max_interval=None,
     x = np.ascontiguousarray(ev['x'].astype(np.int32))
     y = np.ascontiguousarray(ev['y'].astype(np.int32))
     
-    max_x_event = x.max()
-    max_y_event = y.max()
+    # max_x_event = x.max()
+    # max_y_event = y.max()
     
-    if max_x_event >= x_res:
-        print(f"DEBUG: Auto-adjusting X resolution from {x_res} to {max_x_event + 1}")
-        x_res = int(max_x_event + 1)
+    # if max_x_event >= x_res:
+    #     print(f"DEBUG: Auto-adjusting X resolution from {x_res} to {max_x_event + 1}")
+    #     x_res = int(max_x_event + 1)
         
-    if max_y_event >= y_res:
-        print(f"DEBUG: Auto-adjusting Y resolution from {y_res} to {max_y_event + 1}")
-        y_res = int(max_y_event + 1)
+    # if max_y_event >= y_res:
+    #     print(f"DEBUG: Auto-adjusting Y resolution from {y_res} to {max_y_event + 1}")
+    #     y_res = int(max_y_event + 1)
 
     duration = t[-1] - t[0]
     print(f"Recording Duration: {duration} | Resolution: {x_res}x{y_res}")
@@ -139,7 +152,7 @@ def run_analysis(ev, x_res=256, y_res=256, min_interval=None, max_interval=None,
         max_interval = int(max_interval)
         
     if step_interval is None:
-        step_interval = int((max_interval - min_interval) / 50)
+        step_interval = int((max_interval - min_interval) / 100)
         step_interval = max(100, step_interval)
     else:
         step_interval = int(step_interval)
@@ -164,8 +177,14 @@ def run_analysis(ev, x_res=256, y_res=256, min_interval=None, max_interval=None,
     batch_size = max(min_batch_size, int(total_intervals / (num_workers * 10))) 
     
     tasks = []
+    # Shuffle intervals to balance load across workers
+    # Small intervals = many frames = slow. Large intervals = few frames = fast.
+    # Without shuffling, the first worker gets all the heavy queries and runs forever.
+    intervals_shuffled = intervals.copy()
+    np.random.shuffle(intervals_shuffled)
+    
     for i in range(0, total_intervals, batch_size):
-        chunk = intervals[i : i + batch_size]
+        chunk = intervals_shuffled[i : i + batch_size]
         tasks.append((chunk, x_res, y_res))
     
     results_list = []
