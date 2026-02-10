@@ -26,12 +26,12 @@ def __function_metadata__():
             'display_name': 'Area of Continuous Contrast',
             'help_string': 'Calculate the area of continuous contrast for a given event dataset',
             'required_kwargs': [
-                {'name': 'x_res', 'type': int, 'default': 941, 'description': 'Sensor resolution (X-Axis) in microns.'},
-                {'name': 'y_res', 'type': int, 'default': 483, 'description': 'Sensor resolution (Y-Axis) in microns.'}
+                {'name': 'x_res', 'type': int, 'default': 0, 'description': 'Sensor resolution (X-Axis) in microns.'},
+                {'name': 'y_res', 'type': int, 'default': 0, 'description': 'Sensor resolution (Y-Axis) in microns.'}
             ],
             'optional_kwargs': [
-                {'name': 'min_interval', 'type': int, 'default': 60000, 'description': 'Min interval (default: auto)'},
-                {'name': 'max_interval', 'type': int, 'default': 10000000, 'description': 'Max interval (default: auto)'},
+                {'name': 'min_interval', 'type': int, 'default': 10000, 'description': 'Min interval (default: auto)'},
+                {'name': 'max_interval', 'type': int, 'default': 50000000, 'description': 'Max interval (default: auto)'},
                 {'name': 'step_interval', 'type': int, 'default': None, 'description': 'Step size (default: auto)'},
             ],
         }
@@ -139,7 +139,7 @@ def run_analysis(ev, x_res=256, y_res=256, min_interval=None, max_interval=None,
         max_interval = int(max_interval)
         
     if step_interval is None:
-        step_interval = int((max_interval - min_interval) / 100)
+        step_interval = int((max_interval - min_interval) / 50)
         step_interval = max(100, step_interval)
     else:
         step_interval = int(step_interval)
