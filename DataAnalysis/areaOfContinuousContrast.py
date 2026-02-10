@@ -6,6 +6,7 @@ from scipy.ndimage import gaussian_filter, sobel
 import os
 import gc
 from concurrent.futures import ProcessPoolExecutor
+import random
 
 # --- Global container for worker processes ---
 # This ensures data is not pickled/copied for every single task
@@ -26,78 +27,92 @@ def __function_metadata__():
             'display_name': 'Area of Continuous Contrast',
             'help_string': 'Calculate the area of continuous contrast for a given event dataset',
             'required_kwargs': [
-                {'name': 'x_res', 'type': int, 'default': 941, 'description': 'Sensor resolution (X-Axis) in microns.'},
-                {'name': 'y_res', 'type': int, 'default': 483, 'description': 'Sensor resolution (Y-Axis) in microns.'}
+                {'name': 'x_res', 'type': int, 'default': 1043, 'description': 'Sensor resolution (X-Axis) in microns.'},
+                {'name': 'y_res', 'type': int, 'default': 405, 'description': 'Sensor resolution (Y-Axis) in microns.'}
             ],
             'optional_kwargs': [
-                {'name': 'min_interval', 'type': int, 'default': 60000, 'description': 'Min interval (default: auto)'},
-                {'name': 'max_interval', 'type': int, 'default': 10000000, 'description': 'Max interval (default: auto)'},
+                {'name': 'min_interval', 'type': int, 'default': 10000, 'description': 'Min interval (default: auto)'},
+                {'name': 'max_interval', 'type': int, 'default': 50000000, 'description': 'Max interval (default: auto)'},
                 {'name': 'step_interval', 'type': int, 'default': None, 'description': 'Step size (default: auto)'},
             ],
         }
     }
 
-def compute_single_interval(args):
+def compute_interval_batch(args):
     """
-    Worker function to process a single interval.
-    Args now only contain metadata. Data is accessed via worker_data.
+    Worker function to process a batch of intervals.
+    Args: (intervals_chunk, width, height)
     """
-    interval, width, height = args
+    intervals_chunk, width, height = args
     
     # Retrieve data from global storage (zero copy)
     t = worker_data['t']
     x = worker_data['x']
     y = worker_data['y']
     
-    # 1. Define Time Bins
     t_start, t_end = t[0], t[-1]
     
-    # RAM OPTIMIZATION: Instead of np.digitize (which allocates len(t) ints),
-    # use searchsorted because 't' is already sorted.
-    # This keeps memory usage near zero for the slicing logic.
-    bins = np.arange(t_start, t_end + interval, interval)
+    results = []
     
-    # Find indices where time bins start/end
-    # This is much faster and lighter than digitize for sorted data
-    idx_bounds = np.searchsorted(t, bins)
-    
-    contrasts = []
-    
-    # 2. Process each frame using slices
-    # Iterate through the bins defined by indices
-    for i in range(len(idx_bounds) - 1):
-        start_idx = idx_bounds[i]
-        end_idx = idx_bounds[i+1]
+    for interval in intervals_chunk:
+        # 1. Define Time Bins
+        # RAM OPTIMIZATION: Instead of np.digitize, use searchsorted
+        bins = np.arange(t_start, t_end + interval, interval)
         
-        # Skip empty frames
-        if start_idx == end_idx:
-            continue
+        # Find indices where time bins start/end
+        idx_bounds = np.searchsorted(t, bins)
+        
+        contrasts = []
+        
+        # 2. Process each frame using slices
+        for i in range(len(idx_bounds) - 1):
+            start_idx = idx_bounds[i]
+            end_idx = idx_bounds[i+1]
             
-        # Create views (zero copy) of the current frame's events
-        x_slice = x[start_idx:end_idx]
-        y_slice = y[start_idx:end_idx]
-        
-        # Fast histogram
-        img, _, _ = np.histogram2d(y_slice, x_slice, 
-                                   bins=[height, width], 
-                                   range=[[0, height], [0, width]])
-        
-        # Convert to boolean contrast map
-        img = (img > 0).astype(np.float32) * 255
+            # Skip empty frames
+            if start_idx == end_idx:
+                continue
+                
+            # Create views (zero copy) of the current frame's events
+            x_slice = x[start_idx:end_idx]
+            y_slice = y[start_idx:end_idx]
+            
+            # Fast histogram using bincount (approx 10x faster than histogram2d)
+            # Filter out-of-bounds events first (histogram2d does this implicitly via range)
+            mask = (x_slice >= 0) & (x_slice < width) & (y_slice >= 0) & (y_slice < height)
+            if not mask.all():
+                x_s = x_slice[mask]
+                y_s = y_slice[mask]
+            else:
+                x_s = x_slice
+                y_s = y_slice
 
-        # 3. Contrast Calculation
-        blurred = gaussian_filter(img, sigma=2)
-        grad_x = sobel(blurred, axis=1)
-        grad_y = sobel(blurred, axis=0)
-        magnitude = np.hypot(grad_x, grad_y)
-        contrasts.append(np.std(magnitude))
-        del img, blurred, grad_x, grad_y, magnitude  # attempt to free memory
+            if len(x_s) > 0:
+                flat_indices = y_s * width + x_s
+                # bincount is much faster
+                img_flat = np.bincount(flat_indices, minlength=width*height)
+                img = img_flat.reshape((height, width))
+                
+                # Convert to boolean contrast map
+                img = (img > 0).astype(np.float32) * 255
 
-    mean_val = np.mean(contrasts) if contrasts else 0.0
-    contrasts.clear()  # free memory
-    gc.collect() # force garbage collection to free memory immediately
+                # 3. Contrast Calculation
+                blurred = gaussian_filter(img, sigma=2)
+                grad_x = sobel(blurred, axis=1)
+                grad_y = sobel(blurred, axis=0)
+                magnitude = np.hypot(grad_x, grad_y)
+                contrasts.append(np.std(magnitude))
+                
+                # cleanup per frame
+                del img, blurred, grad_x, grad_y, magnitude
+            else:
+                # No events in this frame (or all were out of bounds)
+                contrasts.append(0.0)
 
-    return {'interval': interval, 'mean_contrast': mean_val}
+        mean_val = np.mean(contrasts) if contrasts else 0.0
+        results.append({'interval': interval, 'mean_contrast': mean_val})
+    
+    return results
 
 
 def run_analysis(ev, x_res=256, y_res=256, min_interval=60000, max_interval=10000000, step_interval=None):
@@ -112,16 +127,16 @@ def run_analysis(ev, x_res=256, y_res=256, min_interval=60000, max_interval=1000
     x = np.ascontiguousarray(ev['x'].astype(np.int32))
     y = np.ascontiguousarray(ev['y'].astype(np.int32))
     
-    max_x_event = x.max()
-    max_y_event = y.max()
+    # max_x_event = x.max()
+    # max_y_event = y.max()
     
-    if max_x_event >= x_res:
-        print(f"DEBUG: Auto-adjusting X resolution from {x_res} to {max_x_event + 1}")
-        x_res = int(max_x_event + 1)
+    # if max_x_event >= x_res:
+    #     print(f"DEBUG: Auto-adjusting X resolution from {x_res} to {max_x_event + 1}")
+    #     x_res = int(max_x_event + 1)
         
-    if max_y_event >= y_res:
-        print(f"DEBUG: Auto-adjusting Y resolution from {y_res} to {max_y_event + 1}")
-        y_res = int(max_y_event + 1)
+    # if max_y_event >= y_res:
+    #     print(f"DEBUG: Auto-adjusting Y resolution from {y_res} to {max_y_event + 1}")
+    #     y_res = int(max_y_event + 1)
 
     duration = t[-1] - t[0]
     print(f"Recording Duration: {duration} | Resolution: {x_res}x{y_res}")
@@ -137,7 +152,7 @@ def run_analysis(ev, x_res=256, y_res=256, min_interval=60000, max_interval=1000
         max_interval = int(max_interval)
         
     if step_interval is None:
-        step_interval = int((max_interval - min_interval) / 5)
+        step_interval = int((max_interval - min_interval) / 100)
         step_interval = max(100, step_interval)
     else:
         step_interval = int(step_interval)
@@ -152,20 +167,38 @@ def run_analysis(ev, x_res=256, y_res=256, min_interval=60000, max_interval=1000
     
     # MEMORY FIX: Only pass metadata in the tasks list
     # t, x, y are NOT passed here
-    tasks = [(iv, x_res, y_res) for iv in intervals]
+    
+    # Create batches of tasks to reduce IPC overhead
+    num_workers = os.cpu_count()
+    total_intervals = len(intervals)
+    # Heuristic: 50 batches per worker to balance load allowing work stealing if needed,
+    # but kept reasonable to avoid IPC overhead
+    min_batch_size = 10
+    batch_size = max(min_batch_size, int(total_intervals / (num_workers * 10))) 
+    
+    tasks = []
+    # Shuffle intervals to balance load across workers
+    # Small intervals = many frames = slow. Large intervals = few frames = fast.
+    # Without shuffling, the first worker gets all the heavy queries and runs forever.
+    intervals_shuffled = intervals.copy()
+    np.random.shuffle(intervals_shuffled)
+    
+    for i in range(0, total_intervals, batch_size):
+        chunk = intervals_shuffled[i : i + batch_size]
+        tasks.append((chunk, x_res, y_res))
     
     results_list = []
     
-    # Use max_workers to limit concurrent processes (optional, defaults to CPU count)
-    # Using slightly fewer workers than CPU count can sometimes help with RAM if dataset is massive
-    num_workers = os.cpu_count()
-    print(f"Starting parallel processing with {num_workers} workers...")
+    print(f"Starting parallel processing with {num_workers} workers (Batch size: {batch_size}, Total batches: {len(tasks)})...")
     
     with ProcessPoolExecutor(max_workers=num_workers, 
                              initializer=init_worker, 
                              initargs=(t, x, y)) as executor:
-        results_gen = executor.map(compute_single_interval, tasks)
-        results_list = list(results_gen)
+        results_gen = executor.map(compute_interval_batch, tasks)
+        
+        # Flatten the list of lists
+        for batch_result in results_gen:
+            results_list.extend(batch_result)
 
     results = pd.DataFrame(results_list)
     results = results.sort_values('interval')
