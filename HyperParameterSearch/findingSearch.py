@@ -12,9 +12,9 @@ from DataAnalysis import areaOfContinuousContrast, eventStructuraRatio
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from eve_smlm.CandidateFinding import DBSCAN, EigenFeatureAnalysis, FrameBasedFinding
+    from eve_smlm.CandidateFinding import DBSCAN, EigenFeatureAnalysis, FrameBasedFinding, CausalDBSubsampling
 except ImportError:
-    from CandidateFinding import DBSCAN, EigenFeatureAnalysis, FrameBasedFinding
+    from CandidateFinding import DBSCAN, EigenFeatureAnalysis, FrameBasedFinding, CausalDBSubsampling
 
 RATIO_RANGE = [15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0]
 DBSCAN_EPS_RANGE = [4, 5, 6, 7, 8, 9, 10]
@@ -81,6 +81,30 @@ FRAME_GRID = {
     }
 }
 
+FILTER_GRID = {
+    "CausalDBSubsampling.spatio_temporal_recursive_filtering": {
+        # Time constant in seconds. 
+        # Range: 1ms (very fast motion) to 100ms (slow motion/trails)
+        "tau": {"min": 0.001, "max": 0.1, "log": True, "type": "float"},
+        
+        # Spatial kernel size (must be odd).
+        # Larger sizes smooth more noise but blur spatial details.
+        "filter_size": [3, 5, 7, 9],
+        
+        # Threshold multiplier. 
+        # Higher = fewer events kept (stricter). Lower = more events kept.
+        "sampling_threshold": {"min": 0.1, "max": 5.0, "step": 0.1, "type": "float"},
+        
+        # Window length for local normalization. 
+        # Affects how the filter adapts to changing event rates over time.
+        "normalization_length": [500, 1000, 2500, 5000],
+        
+        # Multiplier to match the time unit of the data (usually fixed).
+        # Included as a list if you want to test different base assumptions, otherwise fix to [1000.0]
+        "time_unit_multiplier": [1000.0],
+    }
+}
+
 def get_function_from_name(name):
     module_name, func_name = name.split('.')
     if module_name == 'DBSCAN':
@@ -89,6 +113,8 @@ def get_function_from_name(name):
         return getattr(EigenFeatureAnalysis, func_name)
     elif module_name == 'FrameBasedFinding':
         return getattr(FrameBasedFinding, func_name)
+    elif module_name == 'CausalDBSubsampling':
+        return getattr(CausalDBSubsampling, func_name)
     return None
 
 def filter_events_t(events, t_stretch):
@@ -388,7 +414,7 @@ def search_run_optuna(npy_array, settings, time_stretch=None, xy_stretch=None, n
     print(f"Running Optuna Bayesian optimization on {len(filtered_events)} events...")
     print(f"Using {n_trials} trials per method\n")
 
-    all_grids = {**DBSCAN_GRID, **EIGEN_GRID}
+    all_grids = {**FILTER_GRID}#{**DBSCAN_GRID, **EIGEN_GRID, **FILTER_GRID}
 
     storage_url = "sqlite:///db.sqlite3"
     study_names = {}
