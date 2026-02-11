@@ -37,6 +37,7 @@ EVE is written in Python and structured in such a way, that is easy to implement
       - [Under Linux and MacOs](#under-linux-and-macos)
    - [The final Localization List](#the-final-localization-list)
    - [Estimate the Localization Precision](#estimate-the-localization-precision)
+   - [Data Analysis](#data-analysis)
    - [Metadata, run and result files](#metadata-run-and-result-files)
    - [Command-line interface](#command-line-interface)
    - [Exemplary data](#exemplary-data)
@@ -174,17 +175,50 @@ Now, you can perform a NeNA fit by selecting `Nearest neighbour analysis (NeNA) 
 
 ![](Quick_Start/15_NeNa.png)<br>
 
-### 10. Metadata, run and result files
+### 10. Data Analysis
+
+The **Data Analysis** tab provides several tools to analyze the raw event data directly. These tools allow for a better understanding of the dataset's quality and characteristics before or after the full localization run.
+
+![](Quick_Start/18_data_analysis.png)
+
+#### Available Analysis Flows
+
+1. **Dataset Statistics:** 
+   Basic summary of the event dataset, including:
+   - Total number of events and duration.
+   - Event rate (KEPS - kilo events per second).
+   - Pixel fill factor and active pixel counts.
+   - Polarity balance (ON vs OFF events).
+   - Visualization of event density distributions.
+
+2. **Area of Continuous Contrast:** 
+   Calculates the contrast of the event data across various time intervals. It computes a "Contrast Curve" and returns the integrated area under the curve, which can be used as a metric for dataset complexity or signal-to-noise ratio. This module uses parallel processing for efficiency.
+
+3. **Event Structural Ratio:** 
+   Computes a structural score for the event packets based on the spatial distribution of events. It provides a measure of how "structured" or "clustered" the events are relative to a random distribution.
+
+4. **2D Projection:** 
+   Generates visualization maps of the entire dataset:
+   - **Accumulation (Density Map):** Shows the count of events per pixel.
+   - **Time Surface (Recency):** Shows the latest timestamp recorded at each pixel, useful for visualizing temporal dynamics or drift.
+
+#### Batch Mode
+The Data Analysis tab supports **Batch Mode**, allowing you to recursively process all files in a selected directory. This is particularly useful for large-scale quality control across multiple datasets.
+
+#### Saving Results
+All analysis results, including generated plots and calculated metrics, can be saved to disk for further review or reporting.
+
+### 11. Metadata, run and result files
 
 If selected correctly in the `Advanced Settings`, EVE will store a lot of metadata, run and result files automatically. In our "Getting Started" example, three finding and three fitting `.pickle` files are stored containing all, only positive and only negative candidates/localizations. In addition, a `.csv` file with all localizations and a metadata `Runinfo` file are stored.  
 
 ![](Quick_Start/17_saved_files.png)<br>
 
-### 11. Command-line interface
+### 12. Command-line interface
 
 All of EVE can also be accessed via the command-line. For a detailed overview look at [`EVE_CommandLine.ipynb`](EVE_CommandLine.ipynb).
 
-### 12. Exemplary data
+### 13. Exemplary data
 The EVE software is packaged with three exemplary datasets, found in the **Data** folder: DNA-PAINT nanoruler, *E. coli* with endogenous RpoC-mEos3.2 and Nile Red membrane stain. The $\alpha$-tubulin labeled Cos7 dSTORM sample dataset, as well as full-sized versions of the other datasets, can be found at [doi:10.5281/zenodo.13269600](doi:10.5281/zenodo.13269600).  Here are succint instructions for how to fully analyse these datasets:
 
 1. Nanoruler (DNA-PAINT):
