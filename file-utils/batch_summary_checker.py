@@ -112,7 +112,10 @@ def plot_combined_dashboard(summary_data, output_dir, group_name=""):
         ('eventStructuraRatio', 'score'),
         ('eventAnalysis', 'fill_factor_percent'),
         ('eventAnalysis', 'on_off_ratio'),
-        ('eventAnalysis', 'active_pixels')
+        ('eventAnalysis', 'active_pixels'),
+        ('eventAnalysis', 'max_density'),
+        ('eventAnalysis', 'mean_density'),
+        ('eventAnalysis', 'std_density')
     ]
     
     # Filter only available ones
