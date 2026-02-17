@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 
 def __function_metadata__():
     return {
@@ -76,6 +77,7 @@ def run_analysis(ev, x_res=0, y_res=0):
     stats['mean_density'] = mean_density
     stats['std_density'] = std_density
     
+
     # 4. Polarity Statistics
     if 'p' in ev.dtype.names:
         p_on = np.count_nonzero(ev['p'] == 1)
@@ -90,11 +92,41 @@ def run_analysis(ev, x_res=0, y_res=0):
         stats['p_on'] = 0
         on_off_ratio = 0
         
+    # 5. Refractory Period Estimation
+    try:
+        df = pd.DataFrame(ev)
+
+        df = df.sort_values(['x', 'y', 't'])
+        
+        pixel_changed = (df['x'] != df['x'].shift()) | (df['y'] != df['y'].shift())
+        
+        df['dt'] = df['t'].diff()
+        
+        df.loc[pixel_changed, 'dt'] = np.nan
+        
+        valid_dts = df[df['dt'] > 0]
+        
+        if not valid_dts.empty:
+            # Find min dt for each pixel
+            min_dts_per_pixel = valid_dts.groupby(['x', 'y'])['dt'].min()
+            
+            stats['refr_min_us'] = min_dts_per_pixel.min()
+            stats['refr_mean_us'] = min_dts_per_pixel.mean()
+            stats['refr_median_us'] = min_dts_per_pixel.median()
+            stats['refr_std_us'] = min_dts_per_pixel.std()
+        else:
+             min_dts_per_pixel = pd.Series(dtype=float)
+             stats['refr_mean_us'] = 0
+        
+    except Exception as e:
+        print(f"Error calculating refractory period: {e}")
+        min_dts_per_pixel = pd.Series(dtype=float)
+        
 
     # --- Visualization ---
     # Create a dashboard-like figure
-    fig = plt.figure(figsize=(10, 5))
-    gs = fig.add_gridspec(1, 2)
+    fig = plt.figure(figsize=(15, 5))
+    gs = fig.add_gridspec(1, 3)
     
     # Plot 1: Pixel Density Distribution (Histogram of pixel counts)
     ax1 = fig.add_subplot(gs[0, 0])
@@ -117,6 +149,26 @@ def run_analysis(ev, x_res=0, y_res=0):
     else:
         ax2.text(0.5, 0.5, "No Polarity Data", ha='center')
         ax2.axis('off')
+
+    # Plot 3: Refractory Period Distribution
+    ax3 = fig.add_subplot(gs[0, 2])
+    if not min_dts_per_pixel.empty:
+        ax3.hist(min_dts_per_pixel, bins=50, color='tab:orange', edgecolor='black', alpha=0.7)
+        ax3.set_title(f'Est. Refractory Period\n(Min dt per Pixel)')
+        ax3.set_xlabel('Time (us)')
+        ax3.set_ylabel('Count of Pixels')
+        ax3.grid(True, alpha=0.3)
+        
+        stats_text = (f"Min: {stats.get('refr_min_us', 0):.1f} us\n"
+                      f"Mean: {stats.get('refr_mean_us', 0):.1f} us\n"
+                      f"Median: {stats.get('refr_median_us', 0):.1f} us")
+        ax3.text(0.95, 0.95, stats_text, transform=ax3.transAxes, 
+                 verticalalignment='top', horizontalalignment='right',
+                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+        
+    
+    else:
+        ax3.text(0.5, 0.5, "Not enough data for Refr. Period", ha='center')
 
     plt.tight_layout()
     
